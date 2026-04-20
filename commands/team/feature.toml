@@ -1,0 +1,35 @@
+description = "Build a feature using the ForgeKit team workflow."
+
+prompt = """
+User request:
+{{args}}
+
+Use the ForgeKit feature workflow.
+
+Use these ForgeKit skills when available:
+- requirements-definition
+- execution-planning
+- architecture-design
+- test-verification
+- code-review-workflow
+- project-memory-workflow
+
+Required flow:
+1. Use product-manager to clarify goal, users, scope, and acceptance criteria.
+2. Use task-planner to break the feature into implementation steps.
+3. Use system-architect for the technical approach if the feature is non-trivial.
+4. Use codebase_investigator to find affected files and existing patterns.
+5. Choose correct implementation agents:
+   - frontend-engineer
+   - backend-engineer
+   - database-engineer
+   - ai-automation-engineer
+6. Use qa-test-engineer for tests and verification.
+7. Use security-engineer if auth, permissions, payments, user data, or external input are involved.
+8. Use code-reviewer before final response.
+9. Use devops-docs-engineer if docs, build, CI, or config changed.
+
+Do not over-engineer.
+Keep changes focused.
+If a step is skipped, briefly explain why.
+"""

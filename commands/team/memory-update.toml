@@ -1,0 +1,21 @@
+description = "Update ForgeKit project memory after meaningful work."
+
+prompt = """
+Update ForgeKit project memory based on the current state.
+
+Use the `project-memory-workflow` skill if available.
+
+Required:
+1. Update `.gemini/context/current-work.md` with:
+   - active task
+   - status
+   - important files
+   - next step
+   - blockers
+2. Update `.gemini/context/decisions.md` only if a real technical decision was made.
+3. Update `.gemini/context/project-brief.md` or `architecture.md` if the high-level scope or system design changed.
+4. Update `.gemini/context/commands.md` or `testing.md` only if commands/testing changed.
+5. Archive stale current-work notes if needed.
+6. Keep hot memory concise.
+7. Do not store full chat history.
+"""

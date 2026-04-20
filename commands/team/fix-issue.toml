@@ -1,0 +1,63 @@
+description = "Fix a bug or issue using the ForgeKit team workflow."
+
+prompt = """
+User request:
+{{args}}
+
+Use the ForgeKit issue-fix workflow.
+
+Consult these ForgeKit skill files as workflow guidance:
+- github-workflow
+- requirements-definition
+- execution-planning
+- test-verification
+- code-review-workflow
+- project-memory-workflow
+
+Required flow:
+1. If the request references a real GitHub issue, PR, or repository ticket, use github-workflow-manager to summarize. Otherwise, treat the user's request as the issue statement.
+
+2. Start with direct repository inspection for up to 5-8 clearly relevant files. Find:
+   - likely root cause
+   - affected files
+   - existing patterns to follow
+   If the issue mentions project memory, session state, templates, commands, or workflow completeness:
+   - choose `devops-docs-engineer` as the primary specialist by default
+   - inspect only this fast-path file set first:
+     - `.gemini/context/current-work.md`
+     - `forgekit/skills/project-memory-workflow/SKILL.md`
+     - `forgekit/skills/session-state-workflow/SKILL.md`
+     - `forgekit/commands/team/init-project.toml`
+     - `forgekit/commands/team/memory-update.toml`
+     - `forgekit/commands/team/session-update.toml`
+     - `forgekit/templates/project-memory/GEMINI.md`
+     - `forgekit/templates/project-memory/context/current-work.md`
+   - do not inspect additional commands, policies, manifests, or unrelated templates unless one specific mismatch in the fast-path file set points there
+
+3. Reproduction:
+   - For code/runtime bugs, attempt reproduction with a script or test case before proposing a fix.
+   - For docs/config/project-memory/workflow bugs, treat a concrete file inconsistency or missing required file/command/template as sufficient reproduction.
+   - Use `qa-test-engineer` when extra verification is needed.
+
+4. Implementation Agent: Choose exactly one primary specialist:
+   - frontend-engineer for UI/client bugs
+   - backend-engineer for API/service/auth bugs
+   - database-engineer for schema/query/migration bugs
+   - devops-docs-engineer for docs/config/project-memory/workflow issues
+   - ai-automation-engineer for LLM/agent/tool bugs
+
+5. Convergence: After the bounded inspection and reproduction, do one of these immediately:
+   - propose a concrete fix and implement it
+   - report that no concrete defect was found in the inspected files
+   - report the single missing dependency or ambiguity that blocks a safe fix
+   For project-memory or workflow-completeness issues, do not continue broad research after the fast-path file set. Either fix the concrete mismatch you found or stop with a bounded diagnosis.
+
+6. Verification: Use `qa-test-engineer` to run regression tests.
+
+7. Review: Use `code-reviewer` before final response.
+
+Do not skip directly to code editing unless the issue is trivial.
+Do not spend many turns on broad exploration before proposing a focused fix.
+If the issue is about project memory or workflow completeness, prefer `devops-docs-engineer`.
+If a step is skipped, briefly explain why.
+"""

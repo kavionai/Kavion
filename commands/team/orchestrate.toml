@@ -1,0 +1,31 @@
+description = "Run the main ForgeKit orchestration workflow for any software task."
+
+prompt = """
+User request:
+{{args}}
+
+Use the ForgeKit orchestration workflow.
+
+Consult these ForgeKit skill files as workflow guidance:
+- orchestration-workflow
+- requirements-definition
+- execution-planning
+- architecture-design
+- session-state-workflow
+- quality-gate
+- project-memory-workflow
+
+Required behavior:
+1. Classify the task as Express or Standard.
+2. Use Express only for small, clear, low-risk work.
+3. Use Standard for ambiguous, multi-file, multi-agent, GitHub, security, database, or architecture work.
+4. Select only the agents needed.
+5. For Standard work, create or update session state under `.gemini/forgekit/` when writes are permitted. If not, continue and report the deferred session update.
+6. Delegate implementation to the correct specialist.
+7. Run verification and review before final response.
+8. Update project memory when meaningful.
+
+Do not call every agent by default.
+Do not edit code before understanding likely impact.
+If a normal phase is skipped, briefly explain why.
+"""

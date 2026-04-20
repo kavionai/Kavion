@@ -1,0 +1,53 @@
+# ForgeKit policy guardrails.
+#
+# Gemini CLI loads policies from ~/.gemini/policies/*.toml by default, or from
+# configured policyPaths. Copy or link this file into ~/.gemini/policies/ to
+# activate it.
+
+[[rule]]
+toolName = "run_shell_command"
+commandPrefix = "rm -rf"
+decision = "deny"
+priority = 900
+denyMessage = "ForgeKit blocked a destructive rm -rf command."
+
+[[rule]]
+toolName = "run_shell_command"
+commandPrefix = "git reset --hard"
+decision = "deny"
+priority = 900
+denyMessage = "ForgeKit blocked git reset --hard."
+
+[[rule]]
+toolName = "run_shell_command"
+commandPrefix = "git clean"
+decision = "ask_user"
+priority = 850
+
+[[rule]]
+toolName = "run_shell_command"
+commandPrefix = "git push"
+decision = "ask_user"
+priority = 700
+
+[[rule]]
+toolName = "run_shell_command"
+commandPrefix = "git commit"
+decision = "ask_user"
+priority = 650
+
+[[rule]]
+toolName = "run_shell_command"
+argsPattern = "\\b(drop database|drop table|truncate table|delete from)\\b"
+decision = "ask_user"
+priority = 650
+
+[[rule]]
+toolName = "write_file"
+decision = "ask_user"
+priority = 100
+
+[[rule]]
+toolName = "replace"
+decision = "ask_user"
+priority = 100

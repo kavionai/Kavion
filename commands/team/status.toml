@@ -1,0 +1,25 @@
+description = "Show current ForgeKit session status for this project."
+
+prompt = """
+Show ForgeKit workflow status for this project.
+
+Use these ForgeKit skills when available:
+- session-state-workflow
+- project-memory-workflow
+
+Check:
+- `.gemini/forgekit/sessions/active/`
+- `.gemini/context/current-work.md`
+- current git branch and status if available
+
+Return:
+- active session or task
+- current phase
+- agents used
+- files touched
+- tests or checks run
+- blockers
+- next step
+
+Do not perform implementation work.
+"""

@@ -1,0 +1,21 @@
+description = "Archive completed or stale ForgeKit sessions."
+
+prompt = """
+Archive ForgeKit session state.
+
+User request:
+{{args}}
+
+Use these ForgeKit skills when available:
+- session-state-workflow
+- project-memory-workflow
+
+Required flow:
+1. Inspect `.gemini/forgekit/sessions/active/`.
+2. Identify completed or stale sessions.
+3. Move completed session summaries to `.gemini/forgekit/sessions/archive/`.
+4. Update `.gemini/context/current-work.md` if the active task is complete.
+5. Do not delete important history.
+
+If uncertain whether a session is stale, ask before archiving.
+"""

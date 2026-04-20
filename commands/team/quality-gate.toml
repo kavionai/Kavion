@@ -1,0 +1,27 @@
+description = "Run ForgeKit final quality gate before completion or PR."
+
+prompt = """
+Run the ForgeKit quality gate.
+
+Consult these ForgeKit skill files as workflow guidance:
+- quality-gate
+- test-verification
+- security-review
+- code-review-workflow
+- github-workflow
+- project-memory-workflow
+
+Required checks:
+1. Requirements and acceptance criteria are satisfied.
+2. Tests were added or updated when behavior changed.
+3. Relevant tests/checks were run or missing checks are documented.
+4. Security review ran if sensitive areas were touched.
+5. Code review found no blocking issues.
+6. Docs or project memory were updated when needed.
+7. GitHub branch, issue, and PR state are clear if applicable.
+
+Return one decision:
+- pass
+- pass-with-risk
+- block
+"""

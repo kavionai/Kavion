@@ -1,0 +1,37 @@
+description = "Initialize ForgeKit project memory files."
+
+prompt = """
+Initialize ForgeKit memory for this project.
+
+Consult the `project-memory-workflow` skill file as guidance. If the runtime supports skill activation, it may use that path. Otherwise, read the skill file directly.
+
+Create or update these files if missing:
+- GEMINI.md
+- .gemini/context/project-brief.md
+- .gemini/context/architecture.md
+- .gemini/context/commands.md
+- .gemini/context/testing.md
+- .gemini/context/current-work.md
+- .gemini/context/decisions.md
+- .gemini/context/github.md
+- .gemini/notes/
+- .gemini/archive/
+- .gemini/forgekit/settings.json
+- .gemini/forgekit/sessions/active/
+- .gemini/forgekit/sessions/archive/
+- .gemini/forgekit/plans/
+- .gemini/forgekit/reports/
+
+Rules:
+1. Do not overwrite existing useful content.
+2. Inspect the project enough to fill accurate starter notes.
+3. Keep each memory file concise.
+4. Root GEMINI.md should import only hot memory files.
+5. Do not include secrets.
+6. Use ForgeKit templates from the extension:
+   - Memory files: forgekit/templates/project-memory/context/
+   - Sessions: forgekit/templates/project-memory/forgekit/session.md
+   - Plans: forgekit/templates/project-memory/forgekit/plan.md
+   - Reports: forgekit/templates/project-memory/forgekit/report.md
+7. For settings.json, refer to forgekit/config/forgekit-settings.example.json.
+"""

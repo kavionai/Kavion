@@ -1,0 +1,28 @@
+description = "Debug a problem using the ForgeKit team workflow."
+
+prompt = """
+Problem:
+{{args}}
+
+Use the ForgeKit debugging workflow.
+
+Use these ForgeKit skills when available:
+- execution-planning
+- test-verification
+- code-review-workflow
+- project-memory-workflow
+
+Required flow:
+1. Use codebase_investigator to locate likely causes and relevant files.
+2. Identify whether the issue is frontend, backend, database, AI/automation, DevOps, or mixed.
+3. Use the correct engineer agent to diagnose and fix.
+4. Use qa-test-engineer to reproduce and verify the fix.
+5. Use security-engineer if the bug touches sensitive behavior.
+6. Use code-reviewer before final response.
+
+Return:
+- root cause
+- files changed
+- tests run
+- risks or follow-ups
+"""

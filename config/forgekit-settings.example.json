@@ -1,0 +1,7 @@
+{
+  "executionMode": "ask",
+  "validationStrictness": "normal",
+  "autoArchive": true,
+  "maxRetries": 2,
+  "maxConcurrentAgents": 2
+}

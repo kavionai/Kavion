@@ -1,0 +1,22 @@
+description = "Resume an active ForgeKit session or task."
+
+prompt = """
+Resume ForgeKit work.
+
+User request:
+{{args}}
+
+Use these ForgeKit skills when available:
+- session-state-workflow
+- orchestration-workflow
+- project-memory-workflow
+
+Required flow:
+1. Read active session state from `.gemini/forgekit/sessions/active/`.
+2. Read `.gemini/context/current-work.md` if present.
+3. Summarize current state before taking action.
+4. Continue from the recorded next step.
+5. If no active session exists, say so and suggest `/team:orchestrate` or `/team:fix-issue`.
+
+Do not restart the task from scratch unless session state is missing or stale.
+"""
