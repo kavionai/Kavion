@@ -29,16 +29,15 @@ git status --short
 Suggested title:
 
 ```text
-Initial open-source release of ForgeKit
+Release ForgeKit v0.2.0
 ```
 
 Suggested summary:
 
 ```text
-- add ForgeKit extension scaffold
-- add agents, skills, commands, and memory templates
-- add contributor and architecture docs
-- add GitHub community files
+- add local memory index/search/audit commands
+- add MCP memory index/search/audit tools
+- document token-safe local memory recall
 ```
 
 ## GitHub Repo Setup
@@ -72,7 +71,7 @@ git push -u origin main
 
 ## Recommended First Release State
 
-Publish as a beta or `v0.1.0` style first release, not as a fully stable
+Publish as a beta or `v0.2.0` style release, not as a fully stable
 automation platform.
 
 Current honest positioning:

@@ -51,6 +51,10 @@ Final responses for non-trivial work must include a "Memory" section showing upd
 - `/team:a11y-audit`
 - `/team:compliance-check`
 - `/team:memory-update`
+- `/team:memory-index`
+- `/team:memory-search`
+- `/team:memory-audit`
+- `/team:memory-compact`
 
 If a normal workflow step is skipped, briefly explain why.
 

@@ -1,0 +1,35 @@
+description = "Build or refresh the local ForgeKit memory index for this project."
+
+prompt = """
+Build or refresh the local ForgeKit memory index.
+
+Use MCP tool `forgekit_index_memory` when available. If the MCP server is not enabled, create or update the index manually using normal file tools.
+
+Index these sources:
+- `.gemini/context/`
+- `.gemini/notes/`
+- `.gemini/forgekit/sessions/`
+- `.gemini/forgekit/plans/`
+- `.gemini/forgekit/reports/`
+- `.gemini/archive/`
+
+Write index files under:
+- `.gemini/forgekit/memory/manifest.json`
+- `.gemini/forgekit/memory/memory.jsonl`
+- `.gemini/forgekit/memory/vectors.jsonl`
+
+Rules:
+1. Markdown files remain the source of truth.
+2. The index is only a searchable cache.
+3. Store source path, chunk id, chunk type, source hash, updated time, tags, and content preview.
+4. Keep chunks small enough for recall.
+5. Do not index secrets or `.env` files.
+6. If no memory files exist, report that `/team:init-project` should run first.
+
+Final response must include:
+- indexed file count
+- indexed chunk count
+- skipped files
+- memory index path
+- next recommended command
+"""

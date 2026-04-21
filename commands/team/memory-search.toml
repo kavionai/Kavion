@@ -1,0 +1,27 @@
+description = "Search local ForgeKit project memory with token-safe recall limits."
+
+prompt = """
+Search ForgeKit project memory for:
+{{args}}
+
+Use MCP tool `forgekit_search_memory` when available. If the MCP server is not enabled, search these files directly:
+- `.gemini/context/`
+- `.gemini/notes/`
+- `.gemini/forgekit/sessions/`
+- `.gemini/forgekit/plans/`
+- `.gemini/forgekit/reports/`
+- `.gemini/archive/`
+
+Recall rules:
+1. Return at most 5 results.
+2. Return short excerpts only.
+3. Prefer exact source paths over long pasted content.
+4. If a result matters, read the original source file before relying on it.
+5. Do not load all memory into context.
+
+Final response must include:
+- query
+- top memory hits with source paths
+- why each hit matters
+- files that should be read next
+"""

@@ -10,6 +10,7 @@ It provides:
 - team commands for orchestration, bug fixing, review, session state, and
   quality gates
 - project-memory and session-state conventions under `.gemini/`
+- local memory index/search commands with token-safe recall limits
 - optional policy and MCP scaffolding for stricter workflow control
 
 This repository follows the official Gemini CLI extension shape:
@@ -88,6 +89,10 @@ node --check mcp-server/index.js
 - `/team:a11y-audit`
 - `/team:compliance-check`
 - `/team:memory-update`
+- `/team:memory-index`
+- `/team:memory-search`
+- `/team:memory-audit`
+- `/team:memory-compact`
 
 ## Docs
 

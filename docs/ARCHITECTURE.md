@@ -62,6 +62,7 @@ ForgeKit distinguishes:
 - warm notes in `.gemini/notes/`
 - cold archive in `.gemini/archive/`
 - task-local session state in `.gemini/forgekit/`
+- local searchable memory cache in `.gemini/forgekit/memory/`
 
 ### Templates
 
@@ -77,7 +78,8 @@ ForgeKit distinguishes:
 
 ### MCP Server
 
-`mcp-server/` is optional. It is currently scaffolded, not required.
+`mcp-server/` is optional. It provides session-state helpers and local memory
+index/search/audit tools when installed and enabled.
 
 ## Control Flow
 
@@ -89,6 +91,7 @@ Typical flow:
 4. work is implemented or diagnosed
 5. verification and review run
 6. memory/session state is updated
+7. local memory index is refreshed when useful
 
 ## Current Design Constraint
 

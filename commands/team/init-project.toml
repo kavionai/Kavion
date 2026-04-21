@@ -21,6 +21,7 @@ Create or update these files if missing:
 - .gemini/forgekit/sessions/archive/
 - .gemini/forgekit/plans/
 - .gemini/forgekit/reports/
+- .gemini/forgekit/memory/
 
 Rules:
 1. Do not overwrite existing useful content.

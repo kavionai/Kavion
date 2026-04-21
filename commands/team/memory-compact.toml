@@ -1,0 +1,22 @@
+description = "Compact ForgeKit memory by keeping hot memory concise and moving detail into notes or archive."
+
+prompt = """
+Compact ForgeKit project memory.
+
+Goal:
+Keep hot memory small while preserving useful detail in notes, reports, or archive.
+
+Rules:
+1. Do not delete useful information.
+2. Move old task detail out of `.gemini/context/current-work.md`.
+3. Keep `.gemini/context/current-work.md` focused on active task, status, blockers, and next step.
+4. Move detailed history to `.gemini/archive/` or `.gemini/notes/`.
+5. Update `.gemini/forgekit/memory/` index after compaction if indexing is in use.
+6. Never store secrets.
+
+Final response must include:
+- hot memory files changed
+- notes/archive files changed
+- index refresh status
+- remaining risks
+"""
