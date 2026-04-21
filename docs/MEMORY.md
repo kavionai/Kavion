@@ -2,6 +2,10 @@
 
 ForgeKit uses two related but different memory layers.
 
+<p align="center">
+  <img src="../assets/forgekit-memory-flow.svg" alt="ForgeKit memory system flow" width="100%">
+</p>
+
 ## Hot Project Memory
 
 Hot memory lives in `.gemini/context/`:
