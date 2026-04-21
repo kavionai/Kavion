@@ -18,14 +18,19 @@ Use ForgeKit for serious software work: feature implementation, bug fixes, debug
 For non-trivial coding work:
 
 1. Consult relevant ForgeKit skill files when available. If the runtime exposes skill activation tools, use them. Otherwise, read the skill files directly and follow them.
-2. Read project memory first if available.
-3. Prefer direct inspection for small or localized tasks. Use built-in `codebase_investigator` only when the codebase is broad, ambiguous, or still unclear after inspecting the most relevant files.
-4. Select the correct specialist agent for implementation.
-5. Use `qa-test-engineer` for verification.
-6. Use `security-engineer` when auth, permissions, secrets, payments, user data, or external input are involved.
-7. Use `code-reviewer` before the final response.
-8. Use `github-workflow-manager` for GitHub issues, branches, PRs, review comments, and CI status.
-9. Use `/team:memory-update` for long-term project memory and `/team:session-update` for task session state when a focused update is needed.
+2. Check whether project memory exists. If `GEMINI.md` or `.gemini/context/current-work.md` is missing, initialize project memory before implementation or report that memory initialization is required.
+3. Read project memory before planning implementation.
+4. For Standard work, create or update task session state under `.gemini/forgekit/sessions/active/` before implementation when writes are permitted.
+5. Prefer direct inspection for small or localized tasks. Use built-in `codebase_investigator` only when the codebase is broad, ambiguous, or still unclear after inspecting the most relevant files.
+6. Select the correct specialist agent for implementation.
+7. Use `qa-test-engineer` for verification.
+8. Use `security-engineer` when auth, permissions, secrets, payments, user data, or external input are involved.
+9. Use `code-reviewer` before the final response.
+10. Use `github-workflow-manager` for GitHub issues, branches, PRs, review comments, and CI status.
+11. Before final response, update project memory and session state when writes are permitted. If writes are blocked, include the exact deferred memory/session update in the final response.
+
+Do not treat memory as optional for non-trivial work.
+Final responses for non-trivial work must include a "Memory" section showing updated, unchanged, or deferred memory files.
 
 ## Preferred Commands
 

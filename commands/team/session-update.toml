@@ -23,4 +23,10 @@ Required:
 
 Do not rewrite unrelated memory files.
 Do not archive an active session unless the task is complete or explicitly paused.
+
+Final response must include:
+- Session file updated
+- Current phase
+- Next step
+- Deferred update payload, if writes were blocked
 """

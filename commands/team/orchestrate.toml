@@ -19,13 +19,25 @@ Required behavior:
 1. Classify the task as Express or Standard.
 2. Use Express only for small, clear, low-risk work.
 3. Use Standard for ambiguous, multi-file, multi-agent, GitHub, security, database, or architecture work.
-4. Select only the agents needed.
-5. For Standard work, create or update session state under `.gemini/forgekit/` when writes are permitted. If not, continue and report the deferred session update.
-6. Delegate implementation to the correct specialist.
-7. Run verification and review before final response.
-8. Update project memory when meaningful.
+4. Before implementation, check whether project memory exists:
+   - `GEMINI.md`
+   - `.gemini/context/current-work.md`
+   - `.gemini/forgekit/settings.json`
+   If missing, initialize it using the ForgeKit project-memory template before continuing, when writes are permitted.
+5. Read project memory before planning implementation.
+6. Select only the agents needed.
+7. For Standard work, create or update session state under `.gemini/forgekit/` when writes are permitted. If not, continue and report the deferred session update.
+8. Delegate implementation to the correct specialist.
+9. Run verification and review before final response.
+10. Before final response, update:
+   - `.gemini/context/current-work.md`
+   - `.gemini/context/decisions.md` only for real decisions
+   - `.gemini/context/commands.md` or `.gemini/context/testing.md` only if changed
+   - active session state under `.gemini/forgekit/sessions/active/`
+   If writes are blocked, include the exact deferred updates in the final response.
 
 Do not call every agent by default.
 Do not edit code before understanding likely impact.
+Do not finish Standard work without a Memory section in the final response.
 If a normal phase is skipped, briefly explain why.
 """

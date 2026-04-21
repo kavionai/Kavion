@@ -6,30 +6,46 @@ User request:
 
 Use the ForgeKit feature workflow.
 
-Use these ForgeKit skills when available:
+Consult these ForgeKit skill files as workflow guidance:
 - requirements-definition
 - execution-planning
 - architecture-design
 - test-verification
 - code-review-workflow
 - project-memory-workflow
+- session-state-workflow
 
 Required flow:
-1. Use product-manager to clarify goal, users, scope, and acceptance criteria.
-2. Use task-planner to break the feature into implementation steps.
-3. Use system-architect for the technical approach if the feature is non-trivial.
-4. Use codebase_investigator to find affected files and existing patterns.
-5. Choose correct implementation agents:
+1. Check whether project memory exists:
+   - `GEMINI.md`
+   - `.gemini/context/current-work.md`
+   - `.gemini/forgekit/settings.json`
+   If missing, initialize project memory before implementation when writes are permitted.
+2. Read project memory before planning.
+3. Create or update an active session under `.gemini/forgekit/sessions/active/` before implementation when writes are permitted.
+4. Use product-manager to clarify goal, users, scope, and acceptance criteria.
+5. Use task-planner to break the feature into implementation steps.
+6. Use system-architect for the technical approach if the feature is non-trivial.
+7. Use codebase_investigator only if direct inspection of the obvious files is not enough.
+8. Choose correct implementation agents:
    - frontend-engineer
    - backend-engineer
    - database-engineer
    - ai-automation-engineer
-6. Use qa-test-engineer for tests and verification.
-7. Use security-engineer if auth, permissions, payments, user data, or external input are involved.
-8. Use code-reviewer before final response.
-9. Use devops-docs-engineer if docs, build, CI, or config changed.
+9. Use qa-test-engineer for tests and verification.
+10. Use security-engineer if auth, permissions, payments, user data, or external input are involved.
+11. Use code-reviewer before final response.
+12. Use devops-docs-engineer if docs, build, CI, config, project memory, or session state changed.
+13. Before final response, update:
+   - `.gemini/context/current-work.md`
+   - `.gemini/context/decisions.md` only for real decisions
+   - `.gemini/context/architecture.md` if system design changed
+   - `.gemini/context/commands.md` or `.gemini/context/testing.md` if commands/tests changed
+   - active session state under `.gemini/forgekit/sessions/active/`
+   If writes are blocked, include the exact deferred updates in the final response.
 
 Do not over-engineer.
 Keep changes focused.
+Do not finish without a Memory section in the final response.
 If a step is skipped, briefly explain why.
 """

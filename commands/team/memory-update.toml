@@ -18,4 +18,9 @@ Required:
 5. Archive stale current-work notes if needed.
 6. Keep hot memory concise.
 7. Do not store full chat history.
+
+Final response must include:
+- Memory files updated
+- Memory files intentionally unchanged
+- Deferred updates, if writes were blocked
 """
