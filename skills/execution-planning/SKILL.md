@@ -14,6 +14,7 @@ Use this skill when work needs more than one step or more than one specialist.
 4. Put investigation before implementation.
 5. Put tests and review after implementation.
 6. Keep the plan proportional to risk.
+7. For Standard or multi-phase work, persist the plan under `.gemini/forgekit/plans/` before implementation.
 
 ## Agent selection
 
@@ -39,3 +40,4 @@ Return:
 - Dependencies
 - Verification plan
 - Risks
+- Plan file path, when persisted

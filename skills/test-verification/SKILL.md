@@ -15,6 +15,7 @@ confidence.
 4. Choose the smallest meaningful test level.
 5. Add regression tests when the bug or feature changes behavior.
 6. Run focused tests first, then broader checks if risk justifies it.
+7. For Standard work, write a QA/test report under `.gemini/forgekit/reports/`.
 
 ## Test levels
 
@@ -33,3 +34,4 @@ Return:
 - Commands run
 - Results
 - Remaining test gaps
+- Report file path, when persisted

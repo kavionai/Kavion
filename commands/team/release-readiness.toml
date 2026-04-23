@@ -12,12 +12,14 @@ Release readiness requires:
 1. Requirements satisfied.
 2. Tests or equivalent verification passed.
 3. QA is not deferred.
-4. Code review completed.
-5. Security review completed for sensitive work.
-6. No unresolved blockers.
-7. Project memory and session state updated.
-8. Memory index current.
-9. GitHub branch/PR state clear when applicable.
+4. Standard/multi-phase work has an implementation plan file.
+5. QA/test evidence report is written for Standard work.
+6. Code review completed and report is written for Standard work.
+7. Security review completed and report is written for sensitive work.
+8. No unresolved blockers.
+9. Project memory and session state updated.
+10. Memory index current.
+11. GitHub branch/PR state clear when applicable.
 
 Return one status:
 - ready

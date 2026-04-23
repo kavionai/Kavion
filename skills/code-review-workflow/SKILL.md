@@ -14,6 +14,7 @@ Use this skill before finalizing code changes.
 4. Check whether tests cover the changed behavior.
 5. Prioritize real bugs over style preferences.
 6. Return concise findings ordered by severity.
+7. For Standard work, write a code review report under `.gemini/forgekit/reports/`.
 
 ## Finding criteria
 
@@ -34,3 +35,4 @@ Return:
 - Suggested fix
 - Test gaps
 - Overall readiness
+- Report file path, when persisted
