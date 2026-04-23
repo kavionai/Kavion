@@ -4,141 +4,164 @@ import { z } from 'zod';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { spawn } from 'node:child_process';
+import MiniSearch from 'minisearch';
+import YAML from 'yaml';
 
 const workspacePath = process.env.FORGEKIT_WORKSPACE_PATH || process.cwd();
-const root = path.join(workspacePath, '.gemini', 'forgekit');
 const geminiRoot = path.join(workspacePath, '.gemini');
-const memoryRoot = path.join(root, 'memory');
-const vectorSize = 128;
-const serverVersion = '0.4.0';
-const defaultVectorBackend = ['auto', 'jsonl', 'lancedb'].includes(process.env.FORGEKIT_VECTOR_BACKEND)
-  ? process.env.FORGEKIT_VECTOR_BACKEND
-  : 'auto';
-const hotMemoryFiles = [
-  '.gemini/context/project-brief.md',
-  '.gemini/context/architecture.md',
-  '.gemini/context/commands.md',
-  '.gemini/context/testing.md',
-  '.gemini/context/current-work.md',
-  '.gemini/context/decisions.md',
-  '.gemini/context/github.md',
-];
+const forgeRoot = path.join(geminiRoot, 'forgekit');
+const indexRoot = path.join(forgeRoot, 'index');
+const notesRoot = path.join(forgeRoot, 'notes');
+const plansRoot = path.join(forgeRoot, 'plans');
+const reportsRoot = path.join(forgeRoot, 'reports');
+const legacyContextRoot = path.join(geminiRoot, 'context');
+const legacyArchiveRoot = path.join(geminiRoot, 'archive');
+const legacySessionsRoot = path.join(forgeRoot, 'sessions');
+const legacyMemoryRoot = path.join(forgeRoot, 'memory');
 
-async function ensureDirs() {
-  await fs.mkdir(path.join(root, 'sessions', 'active'), { recursive: true });
-  await fs.mkdir(path.join(root, 'sessions', 'archive'), { recursive: true });
-  await fs.mkdir(path.join(root, 'plans'), { recursive: true });
-  await fs.mkdir(path.join(root, 'reports'), { recursive: true });
-  await fs.mkdir(memoryRoot, { recursive: true });
-  await fs.mkdir(path.join(geminiRoot, 'notes'), { recursive: true });
-  await fs.mkdir(path.join(geminiRoot, 'archive'), { recursive: true });
+const projectFile = path.join(forgeRoot, 'PROJECT.md');
+const decisionsFile = path.join(forgeRoot, 'DECISIONS.md');
+const decisionsArchiveFile = path.join(forgeRoot, 'DECISIONS-archive.md');
+const currentFile = path.join(forgeRoot, 'CURRENT.md');
+const sessionFile = path.join(forgeRoot, 'session.json');
+const historyFile = path.join(forgeRoot, 'history.jsonl');
+const gatesFile = path.join(forgeRoot, 'gates.yaml');
+const chunksFile = path.join(indexRoot, 'chunks.jsonl');
+const miniSearchFile = path.join(indexRoot, 'bm25.json');
+const dirtyFile = path.join(indexRoot, '.dirty');
+
+const serverVersion = '0.5.0';
+const maxProjectLines = 300;
+const maxCurrentLines = 50;
+const maxDecisionEntries = 200;
+const maxNoteWords = 2000;
+const minNoteWords = 100;
+const noteTtlDays = 14;
+
+const searchOptions = {
+  fields: ['text', 'heading_path'],
+  storeFields: ['path', 'heading_path', 'type', 'updated', 'tokens'],
+  searchOptions: {
+    boost: { heading_path: 2 },
+    fuzzy: 0.2,
+    prefix: true,
+  },
+};
+
+const defaultGateConfig = {
+  test: {
+    command: null,
+    coverage_file: null,
+    coverage_threshold: 0,
+  },
+  review: {
+    required_sections: ['Issues', 'Verified'],
+  },
+  security: {
+    trigger_paths: ['src/auth/**', 'src/crypto/**', '**/Dockerfile', 'package.json'],
+    command: null,
+  },
+  ship: {
+    default_branch: 'main',
+  },
+};
+
+function rel(filePath) {
+  return path.relative(workspacePath, filePath).replace(/\\/g, '/');
 }
 
-function isSafeMemoryFile(file) {
-  const name = path.basename(file);
-  if (name.startsWith('.env')) return false;
-  if (name === '.DS_Store') return false;
-  if (!file.endsWith('.md') && !file.endsWith('.txt')) return false;
-  return !file.includes('node_modules');
+function rootRel(filePath) {
+  return path.relative(geminiRoot, filePath).replace(/\\/g, '/');
+}
+
+function isoNow() {
+  return new Date().toISOString();
+}
+
+function sha1(value) {
+  return crypto.createHash('sha1').update(value).digest('hex');
 }
 
 function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-function tokenize(value) {
-  return value
+function slugify(value) {
+  return String(value || '')
     .toLowerCase()
-    .split(/[^a-z0-9_/-]+/g)
-    .filter((token) => token.length > 2)
-    .slice(0, 500);
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'task';
 }
 
-function embed(value) {
-  const vector = new Array(vectorSize).fill(0);
-  for (const token of tokenize(value)) {
-    const hash = crypto.createHash('sha256').update(token).digest();
-    const index = hash[0] % vectorSize;
-    vector[index] += 1;
-  }
-  const norm = Math.sqrt(vector.reduce((sum, item) => sum + item * item, 0)) || 1;
-  return vector.map((item) => Number((item / norm).toFixed(6)));
+function normalizeWhitespace(value) {
+  return String(value || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
-function cosine(a, b) {
-  let score = 0;
-  for (let index = 0; index < Math.min(a.length, b.length); index += 1) {
-    score += a[index] * b[index];
-  }
-  return score;
+function lines(value) {
+  return normalizeWhitespace(value).split('\n').filter(Boolean);
 }
 
-function chunkText(content, maxChars) {
-  const chunks = [];
-  let current = '';
-  for (const part of content.split(/\n\s*\n/g)) {
-    const clean = part.trim();
-    if (!clean) continue;
-    if ((current + '\n\n' + clean).length > maxChars && current) {
-      chunks.push(current);
-      current = clean;
-    } else {
-      current = current ? `${current}\n\n${clean}` : clean;
-    }
-  }
-  if (current) chunks.push(current);
-  return chunks;
+function wordCount(value) {
+  return normalizeWhitespace(value).split(/\s+/).filter(Boolean).length;
 }
 
-async function walk(dir) {
+function tokenize(value) {
+  return String(value || '')
+    .toLowerCase()
+    .split(/[^a-z0-9_./:-]+/g)
+    .filter((token) => token.length > 1);
+}
+
+function uniq(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function truthy(value) {
+  return value === true || /^true$/i.test(String(value || '').trim());
+}
+
+async function exists(filePath) {
   try {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    const files = [];
-    for (const entry of entries) {
-      const file = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        files.push(...(await walk(file)));
-      } else if (entry.isFile() && isSafeMemoryFile(file)) {
-        files.push(file);
-      }
-    }
-    return files;
+    await fs.access(filePath);
+    return true;
   } catch {
-    return [];
+    return false;
   }
 }
 
-async function collectMemoryFiles() {
-  const roots = [
-    path.join(geminiRoot, 'context'),
-    path.join(geminiRoot, 'notes'),
-    path.join(root, 'sessions'),
-    path.join(root, 'plans'),
-    path.join(root, 'reports'),
-    path.join(geminiRoot, 'archive'),
-  ];
-  const files = [];
-  for (const dir of roots) {
-    files.push(...(await walk(dir)));
-  }
-  return [...new Set(files)].sort();
+async function ensureDirs() {
+  await fs.mkdir(forgeRoot, { recursive: true });
+  await fs.mkdir(indexRoot, { recursive: true });
+  await fs.mkdir(notesRoot, { recursive: true });
+  await fs.mkdir(plansRoot, { recursive: true });
+  await fs.mkdir(reportsRoot, { recursive: true });
 }
 
-function inferChunkType(relativePath) {
-  if (relativePath.includes('/context/decisions')) return 'decision';
-  if (relativePath.includes('/context/architecture')) return 'architecture';
-  if (relativePath.includes('/context/current-work')) return 'current-work';
-  if (relativePath.includes('/sessions/')) return 'session';
-  if (relativePath.includes('/plans/')) return 'plan';
-  if (relativePath.includes('/reports/')) return 'report';
-  if (relativePath.includes('/notes/')) return 'note';
-  return 'memory';
-}
-
-async function readJsonl(file) {
+async function readText(filePath, fallback = '') {
   try {
-    const content = await fs.readFile(file, 'utf8');
-    return content
+    return await fs.readFile(filePath, 'utf8');
+  } catch {
+    return fallback;
+  }
+}
+
+async function readJson(filePath, fallback = null) {
+  try {
+    return JSON.parse(await fs.readFile(filePath, 'utf8'));
+  } catch {
+    return fallback;
+  }
+}
+
+async function readJsonl(filePath) {
+  try {
+    return (await fs.readFile(filePath, 'utf8'))
       .split('\n')
       .filter(Boolean)
       .map((line) => JSON.parse(line));
@@ -147,791 +170,1097 @@ async function readJsonl(file) {
   }
 }
 
-async function readJson(file, fallback = null) {
+async function writeTextAtomic(filePath, content) {
+  const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(tempPath, content, 'utf8');
+  await fs.rename(tempPath, filePath);
+}
+
+async function writeJsonAtomic(filePath, value) {
+  await writeTextAtomic(filePath, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+async function appendJsonl(filePath, value) {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.appendFile(filePath, `${JSON.stringify(value)}\n`, 'utf8');
+}
+
+async function removeIfExists(filePath) {
   try {
-    return JSON.parse(await fs.readFile(file, 'utf8'));
+    await fs.rm(filePath, { recursive: true, force: true });
   } catch {
-    return fallback;
+    // ignore
   }
 }
 
-function normalizeBackend(value) {
-  if (['auto', 'jsonl', 'lancedb'].includes(value)) return value;
-  return 'auto';
+function createMiniSearch() {
+  return new MiniSearch(searchOptions);
 }
 
-async function tryLoadLanceDb() {
-  try {
-    return await import('@lancedb/lancedb');
-  } catch (error) {
-    return { error };
-  }
+function defaultProjectContent() {
+  return `# Project
+
+## Brief
+- Name:
+- Goal:
+- Users:
+
+## Architecture
+- Stack:
+- Runtime:
+- Entry points:
+- Data stores:
+
+## Conventions
+- Commands live in the repo, not here.
+- Keep this file short and update only when repo-wide truths change.
+`;
 }
 
-async function writeLanceDbIndex(chunks, vectors) {
-  if (!chunks.length) {
-    return {
-      enabled: false,
-      backend: 'lancedb',
-      reason: 'No memory chunks to index.',
-    };
-  }
-
-  const lancedb = await tryLoadLanceDb();
-  if (lancedb.error) {
-    return {
-      enabled: false,
-      backend: 'lancedb',
-      reason: '@lancedb/lancedb is not installed. Run npm install in mcp-server or use FORGEKIT_VECTOR_BACKEND=jsonl.',
-    };
-  }
-
-  const lanceRoot = path.join(memoryRoot, 'lancedb');
-  const tableName = 'memory_chunks';
-  const vectorMap = new Map(vectors.map((item) => [item.id, item.vector]));
-  const rows = chunks.map((record) => ({
-    id: record.id,
-    vector: vectorMap.get(record.id) || embed(`${record.source_path}\n${record.content}`),
-    source_path: record.source_path,
-    chunk_index: record.chunk_index,
-    chunk_type: record.chunk_type,
-    source_hash: record.source_hash,
-    updated_at: record.updated_at,
-    tags_json: JSON.stringify(record.tags || []),
-    content: record.content,
-  }));
-
-  try {
-    await fs.mkdir(lanceRoot, { recursive: true });
-    const db = await lancedb.connect(lanceRoot);
-    let table;
-    try {
-      table = await db.createTable(tableName, rows, { mode: 'overwrite' });
-    } catch (error) {
-      if (typeof db.dropTable === 'function') {
-        try {
-          await db.dropTable(tableName);
-        } catch {
-          // The table may not exist. Creation below will report any real failure.
-        }
-      }
-      table = await db.createTable(tableName, rows);
-    }
-    return {
-      enabled: true,
-      backend: 'lancedb',
-      path: lanceRoot,
-      table: tableName,
-      rows: rows.length,
-      api: typeof table.vectorSearch === 'function' ? 'vectorSearch' : 'search',
-    };
-  } catch (error) {
-    return {
-      enabled: false,
-      backend: 'lancedb',
-      reason: error.message,
-    };
-  }
+function defaultDecisionsContent() {
+  return '# Decisions\n\n';
 }
 
-async function buildMemoryIndex({ max_chunk_chars = 1200, vector_backend = defaultVectorBackend } = {}) {
+function defaultCurrentContent() {
+  return `# Current Work
+
+- Active task: none
+- Status: idle
+- Next step:
+- Blockers: none
+`;
+}
+
+function defaultSession() {
+  return {
+    task: '',
+    slug: '',
+    workflow: 'standard',
+    phase: 'idle',
+    status: 'idle',
+    blockers: 'none',
+    next_step: '',
+    verification: '',
+    files_touched: [],
+    agents_used: [],
+    gate_cache: {},
+    updated_at: isoNow(),
+  };
+}
+
+function defaultGatesConfig() {
+  return structuredClone(defaultGateConfig);
+}
+
+async function detectTestCommand() {
+  const packageJson = await readJson(path.join(workspacePath, 'package.json'));
+  if (packageJson?.scripts?.test && !/^echo\s+["']?Error/i.test(packageJson.scripts.test)) {
+    return 'npm test';
+  }
+  if (await exists(path.join(workspacePath, 'pyproject.toml'))) return 'pytest';
+  if (await exists(path.join(workspacePath, 'package.json'))) return 'npm test';
+  return null;
+}
+
+async function detectSecurityCommand() {
+  if (await exists(path.join(workspacePath, 'package.json'))) {
+    return 'npm audit --audit-level=high';
+  }
+  if (await exists(path.join(workspacePath, 'pyproject.toml'))) {
+    return 'bandit -r .';
+  }
+  return null;
+}
+
+async function ensureInitialFiles() {
   await ensureDirs();
-  const files = await collectMemoryFiles();
-  const chunks = [];
-  const vectors = [];
-  const now = new Date().toISOString();
-  const requestedBackend = normalizeBackend(vector_backend);
 
-  for (const file of files) {
-    const content = await fs.readFile(file, 'utf8');
-    const relativePath = path.relative(workspacePath, file);
-    const sourceHash = sha256(content);
-    const parts = chunkText(content, max_chunk_chars);
-    parts.forEach((part, index) => {
-      const id = sha256(`${relativePath}:${sourceHash}:${index}`).slice(0, 24);
+  if (!(await exists(projectFile))) await writeTextAtomic(projectFile, defaultProjectContent());
+  if (!(await exists(decisionsFile))) await writeTextAtomic(decisionsFile, defaultDecisionsContent());
+  if (!(await exists(decisionsArchiveFile))) await writeTextAtomic(decisionsArchiveFile, '# Decisions Archive\n\n');
+  if (!(await exists(currentFile))) await writeTextAtomic(currentFile, defaultCurrentContent());
+  if (!(await exists(sessionFile))) await writeJsonAtomic(sessionFile, defaultSession());
+  if (!(await exists(historyFile))) await writeTextAtomic(historyFile, '');
+
+  if (!(await exists(gatesFile))) {
+    const config = defaultGatesConfig();
+    config.test.command = await detectTestCommand();
+    config.security.command = await detectSecurityCommand();
+    await writeTextAtomic(gatesFile, YAML.stringify(config));
+  }
+}
+
+async function touchDirtyIndex() {
+  await ensureDirs();
+  await writeTextAtomic(dirtyFile, `${isoNow()}\n`);
+}
+
+function splitLongChunk(text, maxChars = 1500) {
+  const paragraphs = normalizeWhitespace(text).split('\n\n').filter(Boolean);
+  const result = [];
+  let current = '';
+
+  for (const paragraph of paragraphs) {
+    if (!current) {
+      current = paragraph;
+      continue;
+    }
+    if ((current.length + 2 + paragraph.length) <= maxChars) {
+      current = `${current}\n\n${paragraph}`;
+      continue;
+    }
+    result.push(current);
+    current = paragraph;
+  }
+
+  if (current) result.push(current);
+  return result.length ? result : [normalizeWhitespace(text)];
+}
+
+function markdownChunks(content) {
+  const rawLines = String(content || '').replace(/\r\n/g, '\n').split('\n');
+  const chunks = [];
+  const stack = [];
+  let body = [];
+
+  const flush = () => {
+    const text = normalizeWhitespace(body.join('\n'));
+    if (!text) {
+      body = [];
+      return;
+    }
+    const headingPath = stack.map((item) => item.text).join(' > ') || 'Document';
+    for (const part of splitLongChunk(text)) {
+      chunks.push({ heading_path: headingPath, text: part });
+    }
+    body = [];
+  };
+
+  for (const line of rawLines) {
+    const match = line.match(/^(#{1,3})\s+(.*)$/);
+    if (match) {
+      flush();
+      const level = match[1].length;
+      const text = match[2].trim();
+      while (stack.length >= level) stack.pop();
+      stack.push({ level, text });
+      continue;
+    }
+    body.push(line);
+  }
+  flush();
+
+  return chunks.length ? chunks : [{ heading_path: 'Document', text: normalizeWhitespace(content) }];
+}
+
+function inferType(filePath) {
+  const relative = rootRel(filePath);
+  if (relative === 'forgekit/PROJECT.md') return 'project';
+  if (relative === 'forgekit/DECISIONS.md' || relative === 'forgekit/DECISIONS-archive.md') return 'decisions';
+  if (relative === 'forgekit/CURRENT.md') return 'current';
+  if (relative === 'forgekit/session.json' || relative === 'forgekit/history.jsonl') return 'session';
+  if (relative.startsWith('forgekit/plans/')) return 'plan';
+  if (relative.startsWith('forgekit/reports/')) return 'report';
+  if (relative.startsWith('forgekit/notes/')) return 'note';
+  if (relative.startsWith('context/')) return 'legacy-context';
+  if (relative.startsWith('archive/')) return 'legacy-archive';
+  if (relative.includes('/sessions/')) return 'legacy-session';
+  return 'memory';
+}
+
+function shouldIndex(filePath) {
+  const relative = rootRel(filePath);
+  if (relative.startsWith('forgekit/index/')) return false;
+  if (relative.startsWith('forgekit/node_modules/')) return false;
+  if (path.basename(filePath).startsWith('.env')) return false;
+  return filePath.endsWith('.md') || filePath.endsWith('.json') || filePath.endsWith('.jsonl');
+}
+
+async function walk(dirPath) {
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    const files = [];
+    for (const entry of entries) {
+      const child = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) files.push(...(await walk(child)));
+      if (entry.isFile() && shouldIndex(child)) files.push(child);
+    }
+    return files;
+  } catch {
+    return [];
+  }
+}
+
+async function collectMemoryFiles() {
+  const files = [
+    projectFile,
+    decisionsFile,
+    decisionsArchiveFile,
+    currentFile,
+    sessionFile,
+    historyFile,
+    gatesFile,
+    ...(await walk(plansRoot)),
+    ...(await walk(reportsRoot)),
+    ...(await walk(notesRoot)),
+  ];
+
+  // Backward compatibility during migration.
+  if (await exists(legacyContextRoot)) files.push(...(await walk(legacyContextRoot)));
+  if (await exists(legacyArchiveRoot)) files.push(...(await walk(legacyArchiveRoot)));
+  if (await exists(legacySessionsRoot)) files.push(...(await walk(legacySessionsRoot)));
+
+  return uniq(files).sort();
+}
+
+async function readChunkableContent(filePath) {
+  if (filePath.endsWith('.json')) {
+    return JSON.stringify(await readJson(filePath, {}), null, 2);
+  }
+  if (filePath.endsWith('.jsonl')) {
+    return (await readJsonl(filePath)).map((item) => JSON.stringify(item, null, 2)).join('\n\n');
+  }
+  return readText(filePath);
+}
+
+async function buildIndex() {
+  await ensureInitialFiles();
+  const files = await collectMemoryFiles();
+  const index = createMiniSearch();
+  const chunks = [];
+
+  for (const filePath of files) {
+    const content = await readChunkableContent(filePath);
+    const stat = await fs.stat(filePath).catch(() => null);
+    if (!normalizeWhitespace(content)) continue;
+
+    for (const chunk of markdownChunks(content)) {
+      if (!normalizeWhitespace(chunk.text)) continue;
       const record = {
-        id,
-        source_path: relativePath,
-        chunk_index: index,
-        chunk_type: inferChunkType(relativePath),
-        source_hash: sourceHash,
-        updated_at: now,
-        tags: tokenize(`${relativePath} ${part}`).slice(0, 12),
-        content: part.slice(0, max_chunk_chars),
+        id: sha1(`${rel(filePath)}:${chunk.heading_path}:${chunk.text}`).slice(0, 8),
+        path: rootRel(filePath),
+        heading_path: chunk.heading_path,
+        text: chunk.text,
+        tokens: tokenize(chunk.text).length,
+        updated: stat?.mtime?.toISOString() || isoNow(),
+        type: inferType(filePath),
       };
       chunks.push(record);
-      vectors.push({ id, vector: embed(`${relativePath}\n${part}`) });
-    });
-  }
-
-  await fs.writeFile(
-    path.join(memoryRoot, 'memory.jsonl'),
-    chunks.map((record) => JSON.stringify(record)).join('\n') + (chunks.length ? '\n' : ''),
-    'utf8',
-  );
-  await fs.writeFile(
-    path.join(memoryRoot, 'vectors.jsonl'),
-    vectors.map((record) => JSON.stringify(record)).join('\n') + (vectors.length ? '\n' : ''),
-    'utf8',
-  );
-
-  const lanceResult =
-    requestedBackend === 'lancedb' || requestedBackend === 'auto'
-      ? await writeLanceDbIndex(chunks, vectors)
-      : { enabled: false, backend: 'lancedb', reason: 'LanceDB disabled by backend setting.' };
-  const activeBackend = lanceResult.enabled ? 'lancedb' : 'local-jsonl-hash-vector';
-
-  await fs.writeFile(
-    path.join(memoryRoot, 'manifest.json'),
-    JSON.stringify(
-      {
-        version: 2,
-        backend: activeBackend,
-        requested_backend: requestedBackend,
-        fallback_backend: 'local-jsonl-hash-vector',
-        vector_backend: lanceResult,
-        workspace: workspacePath,
-        indexed_at: now,
-        files: files.length,
-        chunks: chunks.length,
-        max_chunk_chars,
-        note: 'Markdown files remain the source of truth. This index is a local searchable cache.',
-      },
-      null,
-      2,
-    ),
-    'utf8',
-  );
-
-  return {
-    files: files.length,
-    chunks: chunks.length,
-    root: memoryRoot,
-    backend: activeBackend,
-    requested_backend: requestedBackend,
-    vector_backend: lanceResult,
-  };
-}
-
-function formatSearchRecord(record, score, usedChars, maxTotalChars) {
-  const remaining = Math.max(0, maxTotalChars - usedChars.value);
-  const excerpt = String(record.content || '').slice(0, Math.min(remaining, 800));
-  usedChars.value += excerpt.length;
-  return {
-    id: record.id,
-    source_path: record.source_path,
-    chunk_type: record.chunk_type,
-    score,
-    exact_score: record.exact,
-    semantic_score: record.semantic,
-    excerpt,
-  };
-}
-
-async function searchLanceMemory({ query, top_k, max_total_chars }) {
-  const manifest = await readJson(path.join(memoryRoot, 'manifest.json'));
-  if (manifest?.backend !== 'lancedb') return null;
-
-  const lancedb = await tryLoadLanceDb();
-  if (lancedb.error) return null;
-
-  try {
-    const db = await lancedb.connect(path.join(memoryRoot, 'lancedb'));
-    const table = await db.openTable('memory_chunks');
-    const search = typeof table.vectorSearch === 'function' ? table.vectorSearch.bind(table) : table.search.bind(table);
-    const rows = await search(embed(query)).limit(top_k).toArray();
-    const usedChars = { value: 0 };
-    return rows.map((row) => {
-      const score = typeof row._distance === 'number' ? Number((1 / (1 + row._distance)).toFixed(4)) : 1;
-      return formatSearchRecord(
-        {
-          id: row.id,
-          source_path: row.source_path,
-          chunk_type: row.chunk_type,
-          content: row.content,
-          exact: 0,
-          semantic: score,
-        },
-        score,
-        usedChars,
-        max_total_chars,
-      );
-    });
-  } catch {
-    return null;
-  }
-}
-
-async function searchJsonlMemory({ query, top_k = 5, max_total_chars = 5000 }) {
-  await ensureDirs();
-  const memoryFile = path.join(memoryRoot, 'memory.jsonl');
-  const vectorFile = path.join(memoryRoot, 'vectors.jsonl');
-  let records = await readJsonl(memoryFile);
-  let vectors = await readJsonl(vectorFile);
-  if (!records.length) {
-    await buildMemoryIndex();
-    records = await readJsonl(memoryFile);
-    vectors = await readJsonl(vectorFile);
-  }
-
-  const vectorMap = new Map(vectors.map((item) => [item.id, item.vector]));
-  const queryTokens = tokenize(query);
-  const queryVector = embed(query);
-  const usedChars = { value: 0 };
-
-  return records
-    .map((record) => {
-      const textValue = `${record.source_path} ${record.content}`.toLowerCase();
-      const exact = queryTokens.reduce((score, token) => score + (textValue.includes(token) ? 1 : 0), 0);
-      const semantic = cosine(queryVector, vectorMap.get(record.id) || []);
-      return { ...record, score: Number((exact + semantic).toFixed(4)), exact, semantic: Number(semantic.toFixed(4)) };
-    })
-    .filter((record) => record.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, top_k)
-    .map((record) => formatSearchRecord(record, record.score, usedChars, max_total_chars));
-}
-
-async function searchMemory({ query, top_k = 5, max_total_chars = 5000 }) {
-  await ensureDirs();
-  const lanceResults = await searchLanceMemory({ query, top_k, max_total_chars });
-  if (lanceResults?.length) {
-    return { backend: 'lancedb', results: lanceResults };
-  }
-  return { backend: 'local-jsonl-hash-vector', results: await searchJsonlMemory({ query, top_k, max_total_chars }) };
-}
-
-async function auditMemory() {
-  await ensureDirs();
-  const required = hotMemoryFiles;
-  const missing = [];
-  const oversized = [];
-  for (const relativePath of required) {
-    const file = path.join(workspacePath, relativePath);
-    try {
-      const stat = await fs.stat(file);
-      if (stat.size > 12000) oversized.push({ file: relativePath, bytes: stat.size });
-    } catch {
-      missing.push(relativePath);
     }
   }
-  const manifest = await readJson(path.join(memoryRoot, 'manifest.json'));
-  const manifestExists = Boolean(manifest);
-  const staleIndex = manifest?.indexed_at
-    ? filesChangedAfter(new Date(manifest.indexed_at))
-    : Promise.resolve([]);
-  const changedAfterIndex = await staleIndex;
+
+  index.addAll(chunks);
+  await writeTextAtomic(chunksFile, chunks.map((chunk) => JSON.stringify(chunk)).join('\n') + (chunks.length ? '\n' : ''));
+  await writeJsonAtomic(miniSearchFile, index.toJSON());
+  await removeIfExists(dirtyFile);
+
   return {
-    decision: missing.length ? 'block' : oversized.length || !manifestExists || changedAfterIndex.length ? 'pass-with-risk' : 'pass',
-    missing,
-    oversized,
-    index_present: manifestExists,
-    index_backend: manifest?.backend || null,
-    index_stale_sources: changedAfterIndex.slice(0, 20),
-    recommendations: [
-      ...(missing.length ? ['Run /team:init-project to create missing hot memory files.'] : []),
-      ...(oversized.length ? ['Run /team:memory-compact to keep hot memory small.'] : []),
-      ...(!manifestExists ? ['Run /team:memory-index to create the local memory index.'] : []),
-      ...(changedAfterIndex.length ? ['Run /team:memory-index to refresh stale memory recall cache.'] : []),
-    ],
+    ok: true,
+    root: rel(indexRoot),
+    files: files.length,
+    chunks: chunks.length,
+    backend: 'bm25',
+    dirty: false,
   };
 }
 
-async function filesChangedAfter(date) {
-  const files = await collectMemoryFiles();
-  const changed = [];
-  for (const file of files) {
-    const stat = await fs.stat(file);
-    if (stat.mtime > date) changed.push(path.relative(workspacePath, file));
+async function loadIndex() {
+  const missing = !(await exists(chunksFile)) || !(await exists(miniSearchFile));
+  const dirty = await exists(dirtyFile);
+  if (missing || dirty) {
+    await buildIndex();
   }
-  return changed;
+
+  const chunks = await readJsonl(chunksFile);
+  const miniSearchJson = await readJson(miniSearchFile, null);
+  const index = miniSearchJson ? MiniSearch.loadJSON(miniSearchJson, searchOptions) : createMiniSearch();
+  const chunkMap = new Map(chunks.map((chunk) => [chunk.id, chunk]));
+  return { chunks, chunkMap, index, dirty: Boolean(dirty) };
 }
 
-async function readActiveSessions() {
-  await ensureDirs();
-  const dir = path.join(root, 'sessions', 'active');
-  const names = await fs.readdir(dir).catch(() => []);
+async function searchIndex({ query, top_k = 5 }) {
+  const { chunkMap, index } = await loadIndex();
+  const results = index.search(query, searchOptions.searchOptions).slice(0, top_k).map((result) => {
+    const chunk = chunkMap.get(result.id);
+    return {
+      id: result.id,
+      path: chunk?.path || result.path,
+      heading_path: chunk?.heading_path || result.heading_path || 'Document',
+      type: chunk?.type || result.type || 'memory',
+      score: Number(result.score.toFixed(4)),
+      snippet: String(chunk?.text || '').slice(0, 220),
+      updated: chunk?.updated || result.updated || null,
+    };
+  });
+
+  return {
+    query,
+    backend: 'bm25',
+    results,
+  };
+}
+
+async function readChunk(id) {
+  const { chunkMap } = await loadIndex();
+  return chunkMap.get(id) || null;
+}
+
+async function getSession() {
+  await ensureInitialFiles();
+  const session = await readJson(sessionFile, null);
+  return session && typeof session === 'object' ? { ...defaultSession(), ...session } : defaultSession();
+}
+
+async function writeSession(patch) {
+  const current = await getSession();
+  const next = {
+    ...current,
+    ...patch,
+    files_touched: uniq([...(current.files_touched || []), ...((patch.files_touched || []).filter(Boolean))]),
+    agents_used: uniq([...(current.agents_used || []), ...((patch.agents_used || []).filter(Boolean))]),
+    gate_cache: { ...(current.gate_cache || {}), ...(patch.gate_cache || {}) },
+    updated_at: isoNow(),
+  };
+  await writeJsonAtomic(sessionFile, next);
+  await touchDirtyIndex();
+  return next;
+}
+
+async function archiveSession(reason = 'completed') {
+  const session = await getSession();
+  if (!session.task && !session.slug) {
+    return { ok: false, reason: 'No active session to archive.' };
+  }
+
+  await appendJsonl(historyFile, {
+    ...session,
+    archived_at: isoNow(),
+    archive_reason: reason,
+  });
+  await writeJsonAtomic(sessionFile, defaultSession());
+  await touchDirtyIndex();
+
+  return {
+    ok: true,
+    archived: {
+      task: session.task,
+      slug: session.slug,
+      reason,
+    },
+    history_file: rel(historyFile),
+  };
+}
+
+function parseLegacyField(content, label) {
+  return content.match(new RegExp(`^${label}:\\s*(.*)$`, 'im'))?.[1]?.trim() || '';
+}
+
+async function parseLegacySessions(dirPath) {
+  const names = await fs.readdir(dirPath).catch(() => []);
   const sessions = [];
-  for (const name of names.filter((file) => file.endsWith('.md')).sort()) {
-    const file = path.join(dir, name);
-    const content = await fs.readFile(file, 'utf8');
-    const get = (label) => content.match(new RegExp(`^${label}:\\s*(.*)$`, 'im'))?.[1]?.trim() || '';
+  for (const name of names.filter((item) => item.endsWith('.md')).sort()) {
+    const filePath = path.join(dirPath, name);
+    const content = await readText(filePath);
+    const stat = await fs.stat(filePath).catch(() => null);
     sessions.push({
-      session_id: name.replace(/\.md$/, ''),
-      file: path.relative(workspacePath, file),
-      task: get('Task'),
-      workflow: get('Workflow'),
-      status: get('Status') || 'unknown',
-      phase: get('Current phase') || 'unknown',
-      next_step: get('Next step'),
-      last_updated: get('Last updated'),
-      content,
+      task: parseLegacyField(content, 'Task'),
+      slug: name.replace(/\.md$/, ''),
+      workflow: parseLegacyField(content, 'Workflow') || 'standard',
+      phase: parseLegacyField(content, 'Current phase') || 'unknown',
+      status: parseLegacyField(content, 'Status') || 'unknown',
+      blockers: parseLegacyField(content, 'Blockers') || 'none',
+      next_step: parseLegacyField(content, 'Next step'),
+      verification: parseLegacyField(content, 'Verification'),
+      agents_used: parseLegacyField(content, 'Agents used')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+      files_touched: parseLegacyField(content, 'Files touched')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+      updated_at: parseLegacyField(content, 'Last updated') || stat?.mtime?.toISOString() || isoNow(),
+      legacy_file: rel(filePath),
     });
   }
   return sessions;
 }
 
-async function findSession(sessionId) {
-  const sessions = await readActiveSessions();
-  if (sessionId) {
-    return sessions.find((session) => session.session_id === sessionId) || null;
+function mergeLegacySections(sections) {
+  const seen = new Set();
+  const output = [];
+  for (const [title, content] of sections) {
+    const normalized = normalizeWhitespace(content);
+    if (!normalized) continue;
+
+    const paragraphs = normalized.split('\n\n').filter(Boolean);
+    const uniqueParagraphs = [];
+    for (const paragraph of paragraphs) {
+      const hash = sha256(paragraph.trim());
+      if (seen.has(hash)) continue;
+      seen.add(hash);
+      uniqueParagraphs.push(paragraph.trim());
+    }
+    if (!uniqueParagraphs.length) continue;
+    output.push(`## ${title}\n${uniqueParagraphs.join('\n\n')}`);
   }
-  return sessions.sort((a, b) => String(b.last_updated).localeCompare(String(a.last_updated)))[0] || null;
+  return output.join('\n\n').trim();
 }
 
-function fieldValue(content, label) {
-  return content.match(new RegExp(`^${label}:\\s*(.*)$`, 'im'))?.[1]?.trim() || '';
-}
+async function migrate({ apply = false } = {}) {
+  await ensureInitialFiles();
 
-function hasMeaningfulValue(value) {
-  return Boolean(value && !/^(none|n\/a|na|pending|todo|tbd|unknown|-)?$/i.test(value.trim()));
-}
+  const actions = [];
+  const legacyProjectBrief = await readText(path.join(legacyContextRoot, 'project-brief.md'));
+  const legacyArchitecture = await readText(path.join(legacyContextRoot, 'architecture.md'));
+  const legacyCommands = await readText(path.join(legacyContextRoot, 'commands.md'));
+  const legacyTesting = await readText(path.join(legacyContextRoot, 'testing.md'));
+  const legacyCurrent = await readText(path.join(legacyContextRoot, 'current-work.md'));
+  const legacyDecisions = await readText(path.join(legacyContextRoot, 'decisions.md'));
+  const legacyGithub = await readText(path.join(legacyContextRoot, 'github.md'));
 
-function isClearBlockerValue(value) {
-  return !hasMeaningfulValue(value) || /^(none|no blockers?|resolved|clear)\.?$/i.test(value.trim());
-}
+  const mergedProject = `# Project\n\n${mergeLegacySections([
+    ['Brief', legacyProjectBrief],
+    ['Architecture', legacyArchitecture],
+    ['Commands', legacyCommands],
+    ['Testing', legacyTesting],
+    ['GitHub', legacyGithub],
+  ])}\n`;
 
-function includesAny(value, words) {
-  const haystack = String(value || '').toLowerCase();
-  return words.some((word) => haystack.includes(word));
-}
+  const currentLines = lines(legacyCurrent);
+  const currentContent = currentLines.length ? `# Current Work\n\n${currentLines.map((line) => (line.startsWith('-') ? line : `- ${line}`)).join('\n')}\n` : defaultCurrentContent();
 
-function gate(id, label, status, evidence = '', next = '') {
-  return { id, label, status, evidence, next };
-}
+  const activeLegacy = await parseLegacySessions(path.join(legacySessionsRoot, 'active'));
+  const archivedLegacy = await parseLegacySessions(path.join(legacySessionsRoot, 'archive'));
+  const sortedActive = [...activeLegacy].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+  const activeSession = sortedActive[0] || null;
 
-function decisionFromGates(gates) {
-  if (gates.some((item) => item.status === 'block')) return 'block';
-  if (gates.some((item) => item.status === 'risk')) return 'pass-with-risk';
-  return 'pass';
-}
-
-async function readReportEvidence() {
-  const reportDir = path.join(root, 'reports');
-  const names = await fs.readdir(reportDir).catch(() => []);
-  const reports = [];
-  for (const name of names.filter((item) => item.endsWith('.md')).sort()) {
-    const file = path.join(reportDir, name);
-    const content = await fs.readFile(file, 'utf8').catch(() => '');
-    reports.push({
-      file: path.relative(workspacePath, file),
-      name,
-      content,
-    });
-  }
-  return reports;
-}
-
-async function readPlanEvidence() {
-  const planDir = path.join(root, 'plans');
-  const names = await fs.readdir(planDir).catch(() => []);
-  const plans = [];
-  for (const name of names.filter((item) => item.endsWith('.md')).sort()) {
-    const file = path.join(planDir, name);
-    const content = await fs.readFile(file, 'utf8').catch(() => '');
-    plans.push({
-      file: path.relative(workspacePath, file),
-      name,
-      content,
-    });
-  }
-  return plans;
-}
-
-function reportMentions(reports, words) {
-  return reports.some((report) => includesAny(`${report.name}\n${report.content}`, words));
-}
-
-function planMentions(plans, words) {
-  return plans.some((plan) => includesAny(`${plan.name}\n${plan.content}`, words));
-}
-
-async function checkWorkflow({
-  session_id,
-  require_tests = true,
-  require_review = true,
-  require_memory_index = true,
-  require_security_when_sensitive = true,
-  require_plan = true,
-  require_reports = true,
-  release_mode = false,
-} = {}) {
-  await ensureDirs();
-  const session = await findSession(session_id);
-  const audit = await auditMemory();
-  const plans = await readPlanEvidence();
-  const reports = await readReportEvidence();
-  const gates = [];
-
-  gates.push(
-    gate(
-      'memory.initialized',
-      'Project memory initialized',
-      audit.missing.length ? 'block' : 'pass',
-      audit.missing.length ? `Missing: ${audit.missing.join(', ')}` : 'All hot memory files exist.',
-      audit.missing.length ? 'Run /team:init-project.' : '',
-    ),
+  actions.push(
+    { action: 'merge_project', from: '.gemini/context/*', to: rel(projectFile) },
+    { action: 'convert_current', from: '.gemini/context/current-work.md', to: rel(currentFile) },
+    { action: 'convert_decisions', from: '.gemini/context/decisions.md', to: rel(decisionsFile) },
+    { action: 'convert_sessions', from: '.gemini/forgekit/sessions/', to: `${rel(sessionFile)} + ${rel(historyFile)}` },
+    { action: 'replace_index', from: '.gemini/forgekit/memory/', to: rel(indexRoot) },
   );
 
-  gates.push(
-    gate(
-      'session.active',
-      'Active session exists',
-      session ? 'pass' : 'block',
-      session ? `Using ${session.file}.` : 'No active session found.',
-      session ? '' : 'Run /team:session-update or restart with /team:feature.',
-    ),
-  );
-
-  if (!session) {
-    gates.push(
-      gate(
-        'memory.index',
-        'Memory index current',
-        audit.index_present && !audit.index_stale_sources.length ? 'pass' : 'risk',
-        audit.index_present ? `Backend: ${audit.index_backend || 'unknown'}.` : 'Index missing.',
-        audit.index_present && !audit.index_stale_sources.length ? '' : 'Run /team:memory-index.',
-      ),
-    );
+  if (!apply) {
     return {
-      decision: decisionFromGates(gates),
-      session: null,
-      gates,
-      recommendations: gates.filter((item) => item.next).map((item) => item.next),
+      ok: true,
+      mode: 'dry-run',
+      actions,
+      active_session: activeSession,
     };
   }
 
-  const verification = fieldValue(session.content, 'Verification');
-  const blockers = fieldValue(session.content, 'Blockers');
-  const agents = fieldValue(session.content, 'Agents used');
-  const phase = fieldValue(session.content, 'Current phase');
-  const status = fieldValue(session.content, 'Status');
-  const workflow = fieldValue(session.content, 'Workflow') || session.workflow;
-  const sessionText = session.content;
-  const qaDeferred = includesAny(`${verification}\n${sessionText}`, ['qa deferred', 'verification deferred', 'tests deferred']);
-  const testsPassed = includesAny(`${verification}\n${sessionText}\n${reports.map((report) => report.content).join('\n')}`, [
-    'test passed',
-    'tests passed',
-    'npm test passed',
-    'all tests pass',
-    'e2e passed',
-    'verified',
-  ]);
-  const hasReview = includesAny(`${agents}\n${sessionText}`, ['code-reviewer', 'code review', 'review complete']) ||
-    reportMentions(reports, ['code review', 'reviewer', 'blocking issues']);
-  const sensitive = includesAny(`${session.task}\n${sessionText}`, [
-    'auth',
-    'jwt',
-    'password',
-    'payment',
-    'stripe',
-    'razorpay',
-    'permission',
-    'security',
-    'secret',
-    'token',
-    'user data',
-  ]);
-  const hasSecurity = includesAny(`${agents}\n${sessionText}`, ['security-engineer', 'security review']) ||
-    reportMentions(reports, ['security review', 'security-engineer']);
-  const standardWork = /^standard$/i.test(workflow) || sensitive || includesAny(`${session.task}\n${agents}`, [
-    'backend-engineer',
-    'frontend-engineer',
-    'database-engineer',
-    'qa-test-engineer',
-    'security-engineer',
-    'multi',
-    'complex',
-  ]);
-  const hasPlan = plans.length > 0 && (planMentions(plans, tokenize(session.task).slice(0, 8)) || plans.length === 1);
-  const hasQaReport = reportMentions(reports, ['qa', 'test', 'verification']);
-  const hasReviewReport = reportMentions(reports, ['code review', 'reviewer', 'review']);
-  const hasSecurityReport = reportMentions(reports, ['security review', 'security']);
-
-  gates.push(
-    gate(
-      'session.updated',
-      'Session state updated',
-      hasMeaningfulValue(session.last_updated) ? 'pass' : 'risk',
-      hasMeaningfulValue(session.last_updated) ? `Last updated: ${session.last_updated}.` : 'Last updated is missing.',
-      hasMeaningfulValue(session.last_updated) ? '' : 'Run /team:session-update.',
-    ),
-  );
-
-  if (require_plan && standardWork) {
-    gates.push(
-      gate(
-        'planning.file',
-        'Implementation plan file exists',
-        hasPlan ? 'pass' : 'block',
-        hasPlan ? `Plan files: ${plans.map((plan) => plan.file).join(', ')}.` : 'No matching plan file found in .gemini/forgekit/plans/.',
-        hasPlan ? '' : 'Create a plan under .gemini/forgekit/plans/ before continuing.',
-      ),
-    );
+  await writeTextAtomic(projectFile, `${lines(mergedProject).slice(0, maxProjectLines).join('\n')}\n`);
+  if (normalizeWhitespace(legacyDecisions)) {
+    await writeTextAtomic(decisionsFile, `# Decisions\n\n${normalizeWhitespace(legacyDecisions)}\n`);
   }
-  gates.push(
-    gate(
-      'workflow.phase',
-      'Workflow phase is explicit',
-      hasMeaningfulValue(phase) && hasMeaningfulValue(status) ? 'pass' : 'risk',
-      `Phase: ${phase || 'missing'}, status: ${status || 'missing'}.`,
-      hasMeaningfulValue(phase) && hasMeaningfulValue(status) ? '' : 'Update active session phase/status.',
-    ),
-  );
-  gates.push(
-    gate(
-      'blockers.clear',
-      'No unresolved blockers',
-      isClearBlockerValue(blockers) ? 'pass' : 'block',
-      hasMeaningfulValue(blockers) ? `Blockers: ${blockers}.` : 'No blockers recorded.',
-      isClearBlockerValue(blockers) ? '' : 'Resolve or explicitly defer the blocker.',
-    ),
-  );
+  await writeTextAtomic(currentFile, currentContent);
 
-  if (require_tests) {
-    let testStatus = 'block';
-    let evidence = 'No completed verification evidence found.';
-    let next = 'Run /team:debug for failing tests or /team:quality-gate after tests pass.';
-    if (testsPassed) {
-      testStatus = 'pass';
-      evidence = 'Verification evidence indicates tests/checks passed.';
-      next = '';
-    } else if (qaDeferred) {
-      testStatus = release_mode ? 'block' : 'risk';
-      evidence = 'QA or verification is explicitly deferred.';
-      next = 'Do not mark release-ready. Run /team:debug to fix deferred QA.';
-    }
-    gates.push(gate('verification.tests', 'Tests or verification completed', testStatus, evidence, next));
-    if (require_reports && standardWork) {
-      gates.push(
-        gate(
-          'reports.qa',
-          'QA/test report written',
-          hasQaReport ? 'pass' : 'block',
-          hasQaReport ? 'QA/test report evidence found.' : 'No QA/test report found in .gemini/forgekit/reports/.',
-          hasQaReport ? '' : 'Write a QA/test report under .gemini/forgekit/reports/.',
-        ),
-      );
-    }
+  if (activeSession) {
+    await writeJsonAtomic(sessionFile, {
+      ...defaultSession(),
+      ...activeSession,
+      gate_cache: {},
+    });
+  }
+  for (const session of [...archivedLegacy, ...sortedActive.slice(1)]) {
+    await appendJsonl(historyFile, { ...session, archived_at: isoNow(), archive_reason: 'migration' });
   }
 
-  if (require_review) {
-    gates.push(
-      gate(
-        'review.code',
-        'Code review completed',
-        hasReview ? 'pass' : 'block',
-        hasReview ? 'Review evidence found.' : 'No code review evidence found.',
-        hasReview ? '' : 'Run /team:review or include code-reviewer before handoff.',
-      ),
-    );
-    if (require_reports && standardWork) {
-      gates.push(
-        gate(
-          'reports.review',
-          'Code review report written',
-          hasReviewReport ? 'pass' : 'block',
-          hasReviewReport ? 'Code review report evidence found.' : 'No code review report found in .gemini/forgekit/reports/.',
-          hasReviewReport ? '' : 'Write a code review report under .gemini/forgekit/reports/.',
-        ),
-      );
-    }
-  }
-
-  if (require_security_when_sensitive && sensitive) {
-    gates.push(
-      gate(
-        'review.security',
-        'Security review completed for sensitive work',
-        hasSecurity ? 'pass' : 'block',
-        hasSecurity ? 'Security evidence found.' : 'Sensitive work detected without security review evidence.',
-        hasSecurity ? '' : 'Run /team:security-audit or use security-engineer.',
-      ),
-    );
-    if (require_reports && standardWork) {
-      gates.push(
-        gate(
-          'reports.security',
-          'Security report written',
-          hasSecurityReport ? 'pass' : 'block',
-          hasSecurityReport ? 'Security report evidence found.' : 'No security report found in .gemini/forgekit/reports/.',
-          hasSecurityReport ? '' : 'Write a security report under .gemini/forgekit/reports/.',
-        ),
-      );
-    }
-  }
-
-  if (require_memory_index) {
-    gates.push(
-      gate(
-        'memory.index',
-        'Memory index current',
-        audit.index_present && !audit.index_stale_sources.length ? 'pass' : 'risk',
-        audit.index_present
-          ? `Backend: ${audit.index_backend || 'unknown'}; stale sources: ${audit.index_stale_sources.length}.`
-          : 'Index missing.',
-        audit.index_present && !audit.index_stale_sources.length ? '' : 'Run /team:memory-index.',
-      ),
-    );
-  }
-
-  const recommendations = [...new Set(gates.filter((item) => item.next).map((item) => item.next))];
-  return {
-    decision: decisionFromGates(gates),
-    session: {
-      session_id: session.session_id,
-      file: session.file,
-      task: session.task,
-      phase,
-      status,
-      next_step: session.next_step,
-    },
-    gates,
-    recommendations,
-  };
-}
-
-async function writeWorkflowReport(kind, result) {
-  await ensureDirs();
-  const safeKind = kind.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const file = path.join(root, 'reports', `${safeKind}-${stamp}.md`);
-  const body = `# ForgeKit ${kind}
-
-Decision: ${result.decision}
-Session: ${result.session?.session_id || 'none'}
-Task: ${result.session?.task || 'none'}
-
-## Gates
-
-${result.gates.map((item) => `- ${item.status.toUpperCase()} ${item.label}: ${item.evidence}`).join('\n')}
-
-## Recommendations
-
-${result.recommendations.length ? result.recommendations.map((item) => `- ${item}`).join('\n') : '- None'}
-`;
-  await fs.writeFile(file, body, 'utf8');
-  return path.relative(workspacePath, file);
-}
-
-async function handoffReport({ session_id, write_report = false } = {}) {
-  const result = await checkWorkflow({ session_id, release_mode: true });
-  const report = {
-    ...result,
-    handoff_status: result.decision === 'pass' ? 'ready' : 'blocked',
-    rule: 'Do not call work complete or ready for use while blocking gates remain.',
-  };
-  if (write_report) report.report_file = await writeWorkflowReport('handoff-report', report);
-  return report;
-}
-
-async function releaseReadiness({ session_id, write_report = false } = {}) {
-  const result = await checkWorkflow({ session_id, release_mode: true });
-  const report = {
-    ...result,
-    release_status: result.decision === 'pass' ? 'ready' : 'not-ready',
-    rule: 'QA deferred, missing review, unresolved blockers, or stale memory index prevents release readiness.',
-  };
-  if (write_report) report.report_file = await writeWorkflowReport('release-readiness', report);
-  return report;
-}
-
-async function compactMemory({ dry_run = true, max_hot_bytes = 12000, archive_completed_sessions = true } = {}) {
-  await ensureDirs();
-  const actions = [];
-  const recommendations = [];
-  const oversized_hot_memory = [];
-
-  for (const relativePath of hotMemoryFiles) {
-    try {
-      const stat = await fs.stat(path.join(workspacePath, relativePath));
-      if (stat.size > max_hot_bytes) {
-        oversized_hot_memory.push({ file: relativePath, bytes: stat.size });
-      }
-    } catch {
-      // Missing files are handled by auditMemory.
-    }
-  }
-
-  const sessions = await readActiveSessions();
-  const completed = sessions.filter((session) => /^(complete|completed|done)$/i.test(session.status));
-  if (archive_completed_sessions && completed.length) {
-    for (const session of completed) {
-      const src = path.join(workspacePath, session.file);
-      let dest = path.join(root, 'sessions', 'archive', path.basename(session.file));
-      try {
-        await fs.stat(dest);
-        dest = path.join(root, 'sessions', 'archive', `${session.session_id}-${Date.now()}.md`);
-      } catch {
-        // Destination is free.
-      }
-      actions.push({
-        action: dry_run ? 'would_archive_completed_session' : 'archived_completed_session',
-        session_id: session.session_id,
-        from: session.file,
-        to: path.relative(workspacePath, dest),
-      });
-      if (!dry_run) await fs.rename(src, dest);
-    }
-  }
-
-  if (oversized_hot_memory.length) {
-    recommendations.push('Move detailed history from oversized hot memory into .gemini/notes/ or .gemini/archive/.');
-  }
-  if (!actions.length && !oversized_hot_memory.length) {
-    recommendations.push('No pruning action needed.');
-  }
-
-  let refreshed_index = null;
-  if (!dry_run && actions.length) {
-    refreshed_index = await buildMemoryIndex();
-  }
+  await removeIfExists(legacyArchiveRoot);
+  await removeIfExists(legacyMemoryRoot);
+  await removeIfExists(legacySessionsRoot);
+  await buildIndex();
 
   return {
-    dry_run,
+    ok: true,
+    mode: 'applied',
     actions,
-    oversized_hot_memory,
-    refreshed_index,
-    recommendations,
+    active_session: activeSession,
   };
 }
 
-async function latestFiles(dir, limit = 5) {
-  const names = await fs.readdir(dir).catch(() => []);
-  const files = [];
-  for (const name of names.filter((item) => item.endsWith('.md'))) {
-    const file = path.join(dir, name);
-    const stat = await fs.stat(file);
-    files.push({ file: path.relative(workspacePath, file), updated_at: stat.mtime.toISOString(), bytes: stat.size });
+async function readGateConfig() {
+  await ensureInitialFiles();
+  const raw = await readText(gatesFile);
+  try {
+    const parsed = YAML.parse(raw) || {};
+    return {
+      ...defaultGatesConfig(),
+      ...parsed,
+      review: {
+        ...defaultGateConfig.review,
+        ...(parsed.review || {}),
+      },
+      test: {
+        ...defaultGateConfig.test,
+        ...(parsed.test || {}),
+      },
+      security: {
+        ...defaultGateConfig.security,
+        ...(parsed.security || {}),
+      },
+      ship: {
+        ...defaultGateConfig.ship,
+        ...(parsed.ship || {}),
+      },
+    };
+  } catch {
+    return defaultGatesConfig();
   }
-  return files.sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, limit);
 }
 
-async function dashboard() {
+async function runShell(command) {
+  const startedAt = Date.now();
+  return new Promise((resolve) => {
+    const child = spawn(process.env.SHELL || '/bin/sh', ['-lc', command], {
+      cwd: workspacePath,
+      env: process.env,
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += String(chunk);
+    });
+    child.on('close', (code) => {
+      resolve({
+        command,
+        exit_code: code ?? 1,
+        duration_ms: Date.now() - startedAt,
+        stdout: stdout.trim(),
+        stderr: stderr.trim(),
+      });
+    });
+  });
+}
+
+async function gitHead() {
+  const result = await runShell('git rev-parse HEAD');
+  return result.exit_code === 0 ? result.stdout.trim() : null;
+}
+
+async function gitBranch() {
+  const result = await runShell('git branch --show-current');
+  return result.exit_code === 0 ? result.stdout.trim() : null;
+}
+
+async function gitStatusPorcelain() {
+  const result = await runShell('git status --porcelain');
+  return result.exit_code === 0 ? result.stdout : '';
+}
+
+async function changedFiles() {
+  const result = await runShell('git status --porcelain');
+  if (result.exit_code !== 0 || !result.stdout) return [];
+  return result.stdout
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => line.slice(3).trim())
+    .filter(Boolean);
+}
+
+function globToRegExp(pattern) {
+  const escaped = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*\*/g, '::DOUBLE_STAR::')
+    .replace(/\*/g, '[^/]*')
+    .replace(/::DOUBLE_STAR::/g, '.*');
+  return new RegExp(`^${escaped}$`);
+}
+
+function matchesAnyPattern(filePath, patterns) {
+  return patterns.some((pattern) => globToRegExp(pattern).test(filePath));
+}
+
+async function latestMtime(filePaths) {
+  let latest = 0;
+  for (const filePath of filePaths) {
+    const absolutePath = path.join(workspacePath, filePath);
+    const stat = await fs.stat(absolutePath).catch(() => null);
+    if (stat?.mtimeMs && stat.mtimeMs > latest) latest = stat.mtimeMs;
+  }
+  return latest;
+}
+
+function coveragePercent(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  if (payload.total?.lines?.pct != null) return Number(payload.total.lines.pct);
+
+  const entries = Object.values(payload)
+    .map((item) => item?.lines?.pct)
+    .filter((value) => typeof value === 'number');
+  if (!entries.length) return null;
+  return Number((entries.reduce((sum, value) => sum + value, 0) / entries.length).toFixed(2));
+}
+
+async function readCoverage(filePath) {
+  if (!filePath) return null;
+  const payload = await readJson(path.join(workspacePath, filePath), null);
+  return coveragePercent(payload);
+}
+
+async function findPlanFile(slug) {
+  const preferred = path.join(plansRoot, `plan-${slug}.md`);
+  if (await exists(preferred)) return preferred;
+  const names = await fs.readdir(plansRoot).catch(() => []);
+  if (names.length === 1) return path.join(plansRoot, names[0]);
+  return null;
+}
+
+async function findReportFile(slug, gateName) {
+  const preferred = path.join(reportsRoot, `${slug}-${gateName}.md`);
+  if (await exists(preferred)) return preferred;
+  return null;
+}
+
+function extractRepoPaths(content) {
+  const matches = String(content || '').match(/[A-Za-z0-9_./-]+\.[A-Za-z0-9]+/g) || [];
+  return uniq(matches);
+}
+
+async function existingRepoPaths(pathsToCheck) {
+  const found = [];
+  for (const candidate of pathsToCheck) {
+    const absolutePath = path.join(workspacePath, candidate);
+    if (await exists(absolutePath)) found.push(candidate);
+  }
+  return found;
+}
+
+function reportFrontmatter(label, value) {
+  return `**${label}:** ${value}`;
+}
+
+async function writeGateReport(slug, gateName, result) {
   await ensureDirs();
-  const manifest = await readJson(path.join(memoryRoot, 'manifest.json'));
-  const audit = await auditMemory();
-  const activeSessions = (await readActiveSessions()).map(({ content, ...session }) => session);
-  const currentWorkPath = path.join(geminiRoot, 'context', 'current-work.md');
-  const currentWork = await fs.readFile(currentWorkPath, 'utf8').catch(() => '');
+  const filePath = path.join(reportsRoot, `${slug}-${gateName}.md`);
+  const commandBlock = result.command
+    ? `${reportFrontmatter('Command', `\`${result.command.command}\``)}
+${reportFrontmatter('Exit code', result.command.exit_code)}
+${reportFrontmatter('Duration', `${result.command.duration_ms}ms`)}`
+    : '';
+
+  const outputExcerpt = result.command
+    ? [result.command.stdout, result.command.stderr]
+        .filter(Boolean)
+        .join('\n')
+        .slice(0, 2400)
+    : (result.evidence || '').slice(0, 2400);
+
+  const body = `# Report: ${slug} - ${gateName}
+
+${reportFrontmatter('Timestamp', isoNow())}
+${reportFrontmatter('Git HEAD', (await gitHead()) || 'unknown')}
+${commandBlock ? `\n${commandBlock}` : ''}
+${result.coverage != null ? `\n${reportFrontmatter('Coverage', `${result.coverage}%`)}` : ''}
+
+## Result: ${String(result.result || result.status || 'unknown').toUpperCase()}
+
+## Evidence
+${result.evidence || 'No additional evidence.'}
+
+## Output excerpt
+\`\`\`
+${outputExcerpt || '(none)'}
+\`\`\`
+`;
+
+  await writeTextAtomic(filePath, body);
+  await touchDirtyIndex();
+  return rel(filePath);
+}
+
+async function gatePlan(session, config, { write_report = false } = {}) {
+  const slug = session.slug || slugify(session.task);
+  const filePath = await findPlanFile(slug);
+  if (!filePath) {
+    const result = {
+      gate: 'plan',
+      status: 'block',
+      result: 'block',
+      evidence: 'No plan file found for the active task.',
+      next_step: `Create ${rel(path.join(plansRoot, `plan-${slug}.md`))}.`,
+    };
+    if (write_report) result.report_file = await writeGateReport(slug, 'plan', result);
+    return result;
+  }
+
+  const content = await readText(filePath);
+  const referenced = await existingRepoPaths(extractRepoPaths(content));
+  const pass = referenced.length > 0;
+  const result = {
+    gate: 'plan',
+    status: pass ? 'pass' : 'risk',
+    result: pass ? 'pass' : 'risk',
+    file: rel(filePath),
+    evidence: pass
+      ? `Plan references real files: ${referenced.slice(0, 8).join(', ')}`
+      : 'Plan exists but does not reference real repo files.',
+    next_step: pass ? '' : 'Update the plan to reference actual files or modules.',
+  };
+  if (write_report) result.report_file = await writeGateReport(slug, 'plan', result);
+  return result;
+}
+
+async function gateTest(session, config, { write_report = false, use_cache = true } = {}) {
+  const slug = session.slug || slugify(session.task);
+  const command = config.test?.command;
+  const head = await gitHead();
+  const cached = session.gate_cache?.test;
+
+  if (use_cache && cached?.git_head && cached.git_head === head) {
+    return {
+      gate: 'test',
+      status: cached.result,
+      result: cached.result,
+      evidence: `Using cached test result from ${cached.timestamp}.`,
+      coverage: cached.coverage ?? null,
+      cached: true,
+    };
+  }
+
+  if (!command) {
+    const result = {
+      gate: 'test',
+      status: 'risk',
+      result: 'risk',
+      evidence: 'No test command configured in gates.yaml.',
+      next_step: 'Set test.command in .gemini/forgekit/gates.yaml.',
+    };
+    if (write_report) result.report_file = await writeGateReport(slug, 'test', result);
+    return result;
+  }
+
+  const commandResult = await runShell(command);
+  const coverage = await readCoverage(config.test?.coverage_file);
+  const threshold = Number(config.test?.coverage_threshold || 0);
+  const pass = commandResult.exit_code === 0 && (coverage == null || coverage >= threshold);
+  const status = pass ? 'pass' : 'block';
+  const result = {
+    gate: 'test',
+    status,
+    result: status,
+    command: commandResult,
+    coverage,
+    evidence:
+      commandResult.exit_code === 0
+        ? coverage != null && coverage < threshold
+          ? `Tests passed but coverage ${coverage}% is below threshold ${threshold}%.`
+          : 'Configured test command exited 0.'
+        : 'Configured test command failed.',
+    next_step: pass ? '' : 'Fix the failing test or update gates.yaml if the command is wrong.',
+  };
+
+  const nextSession = await writeSession({
+    verification: pass ? `test gate passed via ${command}` : `test gate failed via ${command}`,
+    gate_cache: {
+      test: {
+        result: status,
+        git_head: head,
+        timestamp: isoNow(),
+        coverage,
+      },
+    },
+  });
+  Object.assign(session, nextSession);
+
+  if (write_report) result.report_file = await writeGateReport(slug, 'test', result);
+  return result;
+}
+
+async function gateReview(session, config, { write_report = false } = {}) {
+  const slug = session.slug || slugify(session.task);
+  const filePath = await findReportFile(slug, 'review');
+  if (!filePath) {
+    return {
+      gate: 'review',
+      status: 'block',
+      result: 'block',
+      evidence: 'No review report found.',
+      next_step: `Write ${rel(path.join(reportsRoot, `${slug}-review.md`))}.`,
+    };
+  }
+
+  const content = await readText(filePath);
+  const requiredSections = config.review?.required_sections || [];
+  const missingSections = requiredSections.filter((section) => !new RegExp(`^##\\s+${section}\\b`, 'im').test(content));
+  const changed = await changedFiles();
+  const latestChanged = await latestMtime(changed);
+  const stat = await fs.stat(filePath).catch(() => null);
+  const fresh = !latestChanged || (stat?.mtimeMs || 0) >= latestChanged;
+
+  const status = missingSections.length ? 'block' : fresh ? 'pass' : 'risk';
+  const result = {
+    gate: 'review',
+    status,
+    result: status,
+    file: rel(filePath),
+    evidence: missingSections.length
+      ? `Missing review sections: ${missingSections.join(', ')}`
+      : fresh
+        ? 'Review report exists and is newer than current changed files.'
+        : 'Review report is stale relative to current changes.',
+    next_step: status === 'pass' ? '' : 'Refresh the review report after the latest code changes.',
+  };
+  if (write_report) result.report_file = await writeGateReport(slug, 'review-check', result);
+  return result;
+}
+
+async function gateSecurity(session, config, { write_report = false } = {}) {
+  const slug = session.slug || slugify(session.task);
+  const changed = await changedFiles();
+  const triggerPaths = config.security?.trigger_paths || [];
+  const triggered = changed.some((filePath) => matchesAnyPattern(filePath, triggerPaths));
+  if (!triggered) {
+    return {
+      gate: 'security',
+      status: 'pass',
+      result: 'pass',
+      evidence: 'Security gate not triggered by current changed files.',
+      skipped: true,
+    };
+  }
+
+  const command = config.security?.command;
+  if (!command) {
+    const result = {
+      gate: 'security',
+      status: 'risk',
+      result: 'risk',
+      evidence: 'Security gate triggered, but no security command is configured.',
+      next_step: 'Set security.command in .gemini/forgekit/gates.yaml.',
+    };
+    if (write_report) result.report_file = await writeGateReport(slug, 'security', result);
+    return result;
+  }
+
+  const commandResult = await runShell(command);
+  const status = commandResult.exit_code === 0 ? 'pass' : 'block';
+  const result = {
+    gate: 'security',
+    status,
+    result: status,
+    command: commandResult,
+    evidence: commandResult.exit_code === 0 ? 'Security command exited 0.' : 'Security command failed.',
+    next_step: status === 'pass' ? '' : 'Address the security findings before shipping.',
+  };
+  if (write_report) result.report_file = await writeGateReport(slug, 'security', result);
+  return result;
+}
+
+async function gateShip(session, config, options = {}) {
+  const slug = session.slug || slugify(session.task);
+  const plan = await gatePlan(session, config, { write_report: options.write_reports });
+  const test = await gateTest(session, config, { write_report: options.write_reports, use_cache: true });
+  const review = await gateReview(session, config, { write_report: false });
+  const security = await gateSecurity(session, config, { write_report: options.write_reports });
+  const branch = await gitBranch();
+  const porcelain = await gitStatusPorcelain();
+  const clean = !porcelain.trim();
+  const defaultBranch = config.ship?.default_branch || 'main';
+
+  let status = 'pass';
+  const blockers = [];
+  for (const gate of [plan, test, review, security]) {
+    if (gate.result === 'block') blockers.push(`${gate.gate} blocked`);
+    if (gate.result === 'risk' && status === 'pass') status = 'risk';
+  }
+  if (!clean) {
+    blockers.push('git status not clean');
+    status = 'block';
+  }
+  if (branch === defaultBranch) {
+    blockers.push(`current branch is ${defaultBranch}`);
+    status = 'block';
+  }
+
+  const result = {
+    gate: 'ship',
+    status,
+    result: status,
+    branch,
+    clean,
+    default_branch: defaultBranch,
+    component_results: { plan, test, review, security },
+    evidence: blockers.length ? blockers.join('; ') : 'All ship gates passed and git state is clean.',
+    next_step: status === 'pass' ? 'Archive or open a PR.' : 'Resolve blocking ship gates.',
+  };
+  if (options.write_reports) result.report_file = await writeGateReport(slug, 'ship', result);
+  return result;
+}
+
+async function runGate(name, options = {}) {
+  const session = await getSession();
+  const config = await readGateConfig();
+  const normalized = String(name || 'status').toLowerCase();
+
+  if (normalized === 'status') return getStatus();
+  if (normalized === 'plan') return gatePlan(session, config, options);
+  if (normalized === 'test') return gateTest(session, config, options);
+  if (normalized === 'review') return gateReview(session, config, options);
+  if (normalized === 'security') return gateSecurity(session, config, options);
+  if (normalized === 'ship') return gateShip(session, config, options);
+
+  return {
+    gate: normalized,
+    status: 'block',
+    result: 'block',
+    evidence: `Unknown gate: ${normalized}`,
+    next_step: 'Use status, plan, test, review, security, or ship.',
+  };
+}
+
+function legacyAuditDecision(statusResult) {
+  if (statusResult.memory?.oversized?.length || statusResult.memory?.expired_notes?.length || statusResult.memory?.index_dirty) {
+    return 'pass-with-risk';
+  }
+  return 'pass';
+}
+
+async function memoryGc({ delete_expired = true } = {}) {
+  await ensureInitialFiles();
+  const names = await fs.readdir(notesRoot).catch(() => []);
+  const expired = [];
+  const kept = [];
+  const now = Date.now();
+
+  for (const name of names.filter((item) => item.endsWith('.md'))) {
+    const filePath = path.join(notesRoot, name);
+    const content = await readText(filePath);
+    const stat = await fs.stat(filePath).catch(() => null);
+    if (!stat) continue;
+
+    const frontmatter = content.match(/^---\n([\s\S]*?)\n---\n/);
+    const parsed = frontmatter ? YAML.parse(frontmatter[1]) : {};
+    const ageDays = (now - stat.mtimeMs) / (1000 * 60 * 60 * 24);
+    if (ageDays > noteTtlDays && !truthy(parsed?.persistent)) {
+      expired.push({ file: rel(filePath), age_days: Number(ageDays.toFixed(1)) });
+      if (delete_expired) await fs.rm(filePath, { force: true });
+    } else {
+      kept.push({ file: rel(filePath), age_days: Number(ageDays.toFixed(1)) });
+    }
+  }
+
+  const projectLineCount = lines(await readText(projectFile)).length;
+  const currentLineCount = lines(await readText(currentFile)).length;
+  const decisionsContent = await readText(decisionsFile);
+  const decisionEntries = (decisionsContent.match(/^##\s+/gm) || []).length;
+
+  const oversized = [];
+  if (projectLineCount > maxProjectLines) oversized.push({ file: rel(projectFile), lines: projectLineCount, max: maxProjectLines });
+  if (currentLineCount > maxCurrentLines) oversized.push({ file: rel(currentFile), lines: currentLineCount, max: maxCurrentLines });
+  if (decisionEntries > maxDecisionEntries) oversized.push({ file: rel(decisionsFile), entries: decisionEntries, max: maxDecisionEntries });
+
+  if (delete_expired && expired.length) {
+    await touchDirtyIndex();
+    await buildIndex();
+  }
+
+  return {
+    ok: true,
+    expired_notes: expired,
+    kept_notes: kept.slice(0, 20),
+    oversized,
+    deleted: Boolean(delete_expired),
+  };
+}
+
+async function getStatus() {
+  await ensureInitialFiles();
+  const session = await getSession();
+  const dirty = await exists(dirtyFile);
+  const branch = await gitBranch();
+  const porcelain = await gitStatusPorcelain();
+  const noteGc = await memoryGc({ delete_expired: false });
+  const latestPlanNames = (await fs.readdir(plansRoot).catch(() => [])).filter((name) => name.endsWith('.md')).sort();
+  const latestReportNames = (await fs.readdir(reportsRoot).catch(() => [])).filter((name) => name.endsWith('.md')).sort();
 
   return {
     workspace: workspacePath,
+    branch,
+    git_clean: !porcelain.trim(),
+    current: normalizeWhitespace(await readText(currentFile)).slice(0, 1400),
+    session,
     memory: {
-      decision: audit.decision,
-      index_present: audit.index_present,
-      index_backend: audit.index_backend,
-      indexed_at: manifest?.indexed_at || null,
-      chunks: manifest?.chunks || 0,
-      stale_sources: audit.index_stale_sources,
-      oversized_hot_memory: audit.oversized,
-      missing_hot_memory: audit.missing,
+      index_root: rel(indexRoot),
+      chunks_file: rel(chunksFile),
+      bm25_file: rel(miniSearchFile),
+      index_dirty: dirty,
+      oversized: noteGc.oversized,
+      expired_notes: noteGc.expired_notes,
     },
-    current_work_excerpt: currentWork.slice(0, 1200),
-    active_sessions: activeSessions,
-    latest_reports: await latestFiles(path.join(root, 'reports')),
-    latest_plans: await latestFiles(path.join(root, 'plans')),
-    recommended_actions: audit.recommendations,
+    latest_plans: latestPlanNames.slice(-5),
+    latest_reports: latestReportNames.slice(-5),
+    decision: legacyAuditDecision({
+      memory: {
+        oversized: noteGc.oversized,
+        expired_notes: noteGc.expired_notes,
+        index_dirty: dirty,
+      },
+    }),
+    next_step: dirty ? '/forge gate status or /team:memory-index' : session.next_step || '',
+  };
+}
+
+async function initializeWorkspace() {
+  await ensureInitialFiles();
+  await touchDirtyIndex();
+  const built = await buildIndex();
+  return {
+    ok: true,
+    root: rel(forgeRoot),
+    files: [
+      rel(projectFile),
+      rel(decisionsFile),
+      rel(decisionsArchiveFile),
+      rel(currentFile),
+      rel(sessionFile),
+      rel(historyFile),
+      rel(gatesFile),
+      rel(notesRoot),
+      rel(plansRoot),
+      rel(reportsRoot),
+      rel(indexRoot),
+    ],
+    index: built,
+  };
+}
+
+async function writeNote({ slug, content, persistent = false } = {}) {
+  const words = wordCount(content);
+  if (words < minNoteWords || words > maxNoteWords) {
+    return {
+      ok: false,
+      reason: `Notes must be between ${minNoteWords} and ${maxNoteWords} words.`,
+      words,
+    };
+  }
+
+  const safeSlug = slugify(slug || content.slice(0, 40));
+  const stamp = isoNow().slice(0, 10);
+  const filePath = path.join(notesRoot, `note-${stamp}-${safeSlug}.md`);
+  const body = `---
+persistent: ${persistent ? 'true' : 'false'}
+created: ${isoNow()}
+---
+
+${normalizeWhitespace(content)}
+`;
+
+  await writeTextAtomic(filePath, body);
+  await touchDirtyIndex();
+
+  return {
+    ok: true,
+    file: rel(filePath),
+    persistent,
+    words,
   };
 }
 
@@ -954,205 +1283,239 @@ const server = new McpServer({
 server.registerTool(
   'forgekit_initialize_workspace',
   {
-    description: 'Create ForgeKit session, plan, and report directories in the current workspace.',
+    description: 'Create the ForgeKit 2 workspace memory structure and build the local BM25 index.',
     inputSchema: z.object({}).shape,
   },
-  async () => {
-    await ensureDirs();
-    return text({ ok: true, root });
-  },
+  async () => text(await initializeWorkspace()),
 );
 
 server.registerTool(
-  'forgekit_create_session',
+  'forgekit_update_session',
   {
-    description: 'Create or replace a ForgeKit active session markdown file.',
+    description: 'Create or update the live ForgeKit session.json file.',
     inputSchema: z
       .object({
-        session_id: z.string(),
-        task: z.string(),
-        workflow: z.enum(['express', 'standard']),
+        task: z.string().optional(),
+        slug: z.string().optional(),
+        workflow: z.enum(['express', 'standard']).optional(),
+        phase: z.string().optional(),
+        status: z.string().optional(),
+        blockers: z.string().optional(),
+        next_step: z.string().optional(),
+        verification: z.string().optional(),
+        files_touched: z.array(z.string()).default([]),
+        agents_used: z.array(z.string()).default([]),
       })
       .shape,
   },
-  async ({ session_id, task, workflow }) => {
-    await ensureDirs();
-    const file = path.join(root, 'sessions', 'active', `${session_id}.md`);
-    const now = new Date().toISOString();
-    const body = `# ForgeKit Session ${session_id}
-
-Task: ${task}
-Workflow: ${workflow}
-Current phase: intake
-Status: active
-Agents used:
-Files touched:
-Verification:
-Blockers:
-Next step:
-Last updated: ${now}
-`;
-    await fs.writeFile(file, body, 'utf8');
-    return text({ ok: true, session_id, file });
-  },
-);
-
-server.registerTool(
-  'forgekit_get_status',
-  {
-    description: 'Read active ForgeKit session files for the current workspace.',
-    inputSchema: z.object({}).shape,
-  },
-  async () => {
-    await ensureDirs();
-    const dir = path.join(root, 'sessions', 'active');
-    const files = await fs.readdir(dir);
-    const sessions = [];
-    for (const name of files.filter((f) => f.endsWith('.md'))) {
-      const file = path.join(dir, name);
-      sessions.push({ file, content: await fs.readFile(file, 'utf8') });
-    }
-    return text({ root, active_sessions: sessions });
-  },
+  async (payload) => text(await writeSession(payload)),
 );
 
 server.registerTool(
   'forgekit_archive_session',
   {
-    description: 'Move a ForgeKit active session to the archive directory.',
-    inputSchema: z.object({ session_id: z.string() }).shape,
+    description: 'Archive the live session into history.jsonl and reset session.json.',
+    inputSchema: z.object({ reason: z.string().default('completed') }).shape,
   },
-  async ({ session_id }) => {
-    await ensureDirs();
-    const src = path.join(root, 'sessions', 'active', `${session_id}.md`);
-    const dest = path.join(root, 'sessions', 'archive', `${session_id}.md`);
-    await fs.rename(src, dest);
-    return text({ ok: true, session_id, archived_to: dest });
+  async ({ reason }) => text(await archiveSession(reason)),
+);
+
+server.registerTool(
+  'forgekit_build_index',
+  {
+    description: 'Build or refresh the ForgeKit 2 chunks.jsonl and bm25.json index files.',
+    inputSchema: z.object({}).shape,
   },
+  async () => text(await buildIndex()),
+);
+
+server.registerTool(
+  'forgekit_search',
+  {
+    description: 'Search ForgeKit project memory using the local BM25 index.',
+    inputSchema: z
+      .object({
+        query: z.string(),
+        top_k: z.number().int().min(1).max(10).default(5),
+      })
+      .shape,
+  },
+  async ({ query, top_k }) => text(await searchIndex({ query, top_k })),
+);
+
+server.registerTool(
+  'forgekit_read_chunk',
+  {
+    description: 'Read a specific indexed memory chunk by chunk id.',
+    inputSchema: z.object({ id: z.string() }).shape,
+  },
+  async ({ id }) => text(await readChunk(id)),
+);
+
+server.registerTool(
+  'forgekit_status',
+  {
+    description: 'Return the current ForgeKit 2 session, git, and memory status.',
+    inputSchema: z.object({}).shape,
+  },
+  async () => text(await getStatus()),
+);
+
+server.registerTool(
+  'forgekit_gate',
+  {
+    description: 'Run a ForgeKit 2 gate using real command output and filesystem state.',
+    inputSchema: z
+      .object({
+        name: z.enum(['status', 'plan', 'test', 'review', 'security', 'ship']),
+        write_reports: z.boolean().default(false),
+      })
+      .shape,
+  },
+  async ({ name, write_reports }) => text(await runGate(name, { write_reports })),
+);
+
+server.registerTool(
+  'forgekit_write_note',
+  {
+    description: 'Write a structured research/debug note under .gemini/forgekit/notes with TTL enforcement.',
+    inputSchema: z
+      .object({
+        slug: z.string().optional(),
+        content: z.string(),
+        persistent: z.boolean().default(false),
+      })
+      .shape,
+  },
+  async ({ slug, content, persistent }) => text(await writeNote({ slug, content, persistent })),
+);
+
+server.registerTool(
+  'forgekit_memory_gc',
+  {
+    description: 'Prune expired notes and report oversized ForgeKit memory files.',
+    inputSchema: z.object({ delete_expired: z.boolean().default(true) }).shape,
+  },
+  async ({ delete_expired }) => text(await memoryGc({ delete_expired })),
+);
+
+server.registerTool(
+  'forgekit_migrate',
+  {
+    description: 'Preview or apply migration from the old ForgeKit memory layout to ForgeKit 2.',
+    inputSchema: z.object({ apply: z.boolean().default(false) }).shape,
+  },
+  async ({ apply }) => text(await migrate({ apply })),
+);
+
+// Compatibility aliases for the existing ForgeKit 0.x command surface.
+server.registerTool(
+  'forgekit_create_session',
+  {
+    description: 'Compatibility alias for creating or updating ForgeKit session state.',
+    inputSchema: z
+      .object({
+        session_id: z.string().optional(),
+        task: z.string(),
+        workflow: z.enum(['express', 'standard']).default('standard'),
+      })
+      .shape,
+  },
+  async ({ session_id, task, workflow }) =>
+    text(
+      await writeSession({
+        task,
+        slug: session_id || slugify(task),
+        workflow,
+        phase: 'intake',
+        status: 'active',
+      }),
+    ),
+);
+
+server.registerTool(
+  'forgekit_get_status',
+  {
+    description: 'Compatibility alias for ForgeKit status.',
+    inputSchema: z.object({}).shape,
+  },
+  async () => text(await getStatus()),
 );
 
 server.registerTool(
   'forgekit_index_memory',
   {
-    description: 'Build or refresh the local ForgeKit memory index from project memory, notes, sessions, plans, reports, and archive files.',
-    inputSchema: z
-      .object({
-        max_chunk_chars: z.number().int().min(300).max(2400).default(1200),
-        vector_backend: z.enum(['auto', 'jsonl', 'lancedb']).default(defaultVectorBackend),
-      })
-      .shape,
+    description: 'Compatibility alias for building the ForgeKit BM25 memory index.',
+    inputSchema: z.object({}).shape,
   },
-  async ({ max_chunk_chars, vector_backend }) => text(await buildMemoryIndex({ max_chunk_chars, vector_backend })),
+  async () => text(await buildIndex()),
 );
 
 server.registerTool(
   'forgekit_search_memory',
   {
-    description: 'Search the local ForgeKit memory index with token-safe recall limits.',
+    description: 'Compatibility alias for BM25 memory search.',
     inputSchema: z
       .object({
         query: z.string(),
         top_k: z.number().int().min(1).max(10).default(5),
-        max_total_chars: z.number().int().min(500).max(10000).default(5000),
+        max_total_chars: z.number().int().optional(),
       })
       .shape,
   },
-  async ({ query, top_k, max_total_chars }) => {
-    const recall = await searchMemory({ query, top_k, max_total_chars });
-    return text({
-      query,
-      backend: recall.backend,
-      results: recall.results,
-      rule: 'Read original source files before relying on recalled memory.',
-    });
-  },
+  async ({ query, top_k }) => text(await searchIndex({ query, top_k })),
 );
 
 server.registerTool(
   'forgekit_audit_memory',
   {
-    description: 'Audit ForgeKit project memory for missing hot memory files, oversized files, and missing index state.',
+    description: 'Compatibility alias for ForgeKit memory hygiene status.',
     inputSchema: z.object({}).shape,
   },
-  async () => text(await auditMemory()),
+  async () => text(await getStatus()),
 );
 
 server.registerTool(
   'forgekit_compact_memory',
   {
-    description: 'Prune ForgeKit memory safely by archiving completed sessions and reporting oversized hot memory files.',
-    inputSchema: z
-      .object({
-        dry_run: z.boolean().default(true),
-        max_hot_bytes: z.number().int().min(4000).max(40000).default(12000),
-        archive_completed_sessions: z.boolean().default(true),
-      })
-      .shape,
+    description: 'Compatibility alias for ForgeKit memory garbage collection.',
+    inputSchema: z.object({ dry_run: z.boolean().default(true) }).shape,
   },
-  async ({ dry_run, max_hot_bytes, archive_completed_sessions }) =>
-    text(await compactMemory({ dry_run, max_hot_bytes, archive_completed_sessions })),
+  async ({ dry_run }) => text(await memoryGc({ delete_expired: !dry_run })),
 );
 
 server.registerTool(
   'forgekit_dashboard',
   {
-    description: 'Return a compact ForgeKit project dashboard with memory, session, plan, report, and recommended action status.',
+    description: 'Compatibility alias for ForgeKit status/dashboard.',
     inputSchema: z.object({}).shape,
   },
-  async () => text(await dashboard()),
+  async () => text(await getStatus()),
 );
 
 server.registerTool(
   'forgekit_check_workflow',
   {
-    description: 'Evaluate ForgeKit workflow gates for the active session and return pass, pass-with-risk, or block.',
-    inputSchema: z
-      .object({
-        session_id: z.string().optional(),
-        require_tests: z.boolean().default(true),
-        require_review: z.boolean().default(true),
-        require_memory_index: z.boolean().default(true),
-        require_security_when_sensitive: z.boolean().default(true),
-        require_plan: z.boolean().default(true),
-        require_reports: z.boolean().default(true),
-        release_mode: z.boolean().default(false),
-        write_report: z.boolean().default(false),
-      })
-      .shape,
+    description: 'Compatibility alias for ship gate evaluation.',
+    inputSchema: z.object({ write_report: z.boolean().default(false) }).shape,
   },
-  async ({
-    session_id,
-    require_tests,
-    require_review,
-    require_memory_index,
-    require_security_when_sensitive,
-    require_plan,
-    require_reports,
-    release_mode,
-    write_report,
-  }) => {
-    const result = await checkWorkflow({
-      session_id,
-      require_tests,
-      require_review,
-      require_memory_index,
-      require_security_when_sensitive,
-      require_plan,
-      require_reports,
-      release_mode,
+  async ({ write_report }) => {
+    const result = await runGate('ship', { write_reports: write_report });
+    return text({
+      decision: result.result === 'risk' ? 'pass-with-risk' : result.result,
+      gates: result.component_results || {},
+      evidence: result.evidence,
+      report_file: result.report_file || null,
     });
-    if (write_report) result.report_file = await writeWorkflowReport('workflow-checkpoint', result);
-    return text(result);
   },
 );
 
 server.registerTool(
   'forgekit_record_checkpoint',
   {
-    description: 'Write a workflow checkpoint report for the active ForgeKit session.',
+    description: 'Compatibility alias that writes a manual checkpoint report into reports/.',
     inputSchema: z
       .object({
-        session_id: z.string().optional(),
         checkpoint: z.string(),
         status: z.enum(['pass', 'pass-with-risk', 'block']),
         evidence: z.string().default(''),
@@ -1160,44 +1523,33 @@ server.registerTool(
       })
       .shape,
   },
-  async ({ session_id, checkpoint, status, evidence, next_step }) => {
-    const result = {
-      decision: status,
-      session: session_id ? { session_id } : (await checkWorkflow({ session_id })).session,
-      gates: [gate('manual.checkpoint', checkpoint, status === 'pass-with-risk' ? 'risk' : status, evidence, next_step)],
-      recommendations: next_step ? [next_step] : [],
-    };
-    result.report_file = await writeWorkflowReport('manual-checkpoint', result);
-    return text(result);
+  async ({ checkpoint, status, evidence, next_step }) => {
+    const session = await getSession();
+    const slug = session.slug || slugify(session.task || checkpoint);
+    const report = await writeGateReport(slug, `checkpoint-${slugify(checkpoint)}`, {
+      result: status,
+      evidence: [checkpoint, evidence, next_step].filter(Boolean).join(' | '),
+    });
+    return text({ ok: true, report_file: report, decision: status });
   },
 );
 
 server.registerTool(
   'forgekit_handoff_report',
   {
-    description: 'Create a handoff decision from workflow gates. Blocks handoff when required gates are missing.',
-    inputSchema: z
-      .object({
-        session_id: z.string().optional(),
-        write_report: z.boolean().default(false),
-      })
-      .shape,
+    description: 'Compatibility alias for the ship gate.',
+    inputSchema: z.object({ write_report: z.boolean().default(false) }).shape,
   },
-  async ({ session_id, write_report }) => text(await handoffReport({ session_id, write_report })),
+  async ({ write_report }) => text(await runGate('ship', { write_reports: write_report })),
 );
 
 server.registerTool(
   'forgekit_release_readiness',
   {
-    description: 'Evaluate whether the active ForgeKit session is ready for release, PR, or archive.',
-    inputSchema: z
-      .object({
-        session_id: z.string().optional(),
-        write_report: z.boolean().default(false),
-      })
-      .shape,
+    description: 'Compatibility alias for the ship gate.',
+    inputSchema: z.object({ write_report: z.boolean().default(false) }).shape,
   },
-  async ({ session_id, write_report }) => text(await releaseReadiness({ session_id, write_report })),
+  async ({ write_report }) => text(await runGate('ship', { write_reports: write_report })),
 );
 
 const transport = new StdioServerTransport();

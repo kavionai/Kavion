@@ -1,21 +1,14 @@
-# Implementation Plan: {{Task}}
+# Plan: <task-slug>
 
-## Objective
-{{Objective}}
+## Scope
+- Goal:
+- Acceptance criteria:
 
-## Research Findings
-{{Findings}}
+## Steps
+1. Inspect the relevant code and constraints.
+2. Implement the smallest correct change.
+3. Verify with the right gate or test command.
+4. Update memory and session state.
 
-## Proposed Changes
-{{Changes}}
-
-## Execution Steps
-1. [ ] {{Step1}}
-2. [ ] {{Step2}}
-
-## Verification Plan
-- [ ] {{Check1}}
-- [ ] {{Check2}}
-
-## Risks
-- {{Risk1}}
+## Files
+- src/example.ts

@@ -1,34 +1,23 @@
-description = "Update ForgeKit task session state after meaningful progress."
+description = "Update ForgeKit 2 task session state after meaningful progress."
 
 prompt = """
 Update ForgeKit session state for the current task.
 
-Consult the `session-state-workflow` skill file as guidance. If the runtime supports skill activation, it may use that path. Otherwise, read the skill file directly.
-
 Required:
-1. Inspect `.gemini/forgekit/sessions/active/` and identify the current session if one exists.
-2. If no active session exists and the task is non-trivial, create a concise session file.
-3. Update the active session with:
+1. Inspect `.gemini/forgekit/session.json`.
+2. If no active session exists and the task is non-trivial, create a concise session state.
+3. Update the live session with:
    - current phase
    - agents used
    - files touched
    - verification run
    - blockers
    - next step
-   - last updated
-4. If a detailed implementation plan exists, keep it under `.gemini/forgekit/plans/`.
+   - last update time
+4. If a detailed plan exists, keep it under `.gemini/forgekit/plans/`.
 5. If review or QA output exists, keep it under `.gemini/forgekit/reports/`.
-6. Keep session state concise.
-7. If writes are not permitted, report the deferred updates instead of blocking progress.
-8. Refresh `.gemini/forgekit/memory/` after session updates using MCP tool `forgekit_index_memory` when available. If MCP is not enabled, update the local index files manually or report index refresh as deferred.
+6. Refresh `.gemini/forgekit/index/` after session updates.
 
 Do not rewrite unrelated memory files.
-Do not archive an active session unless the task is complete or explicitly paused.
-
-Final response must include:
-- Session file updated
-- Current phase
-- Next step
-- Memory index refresh status
-- Deferred update payload, if writes were blocked
+Do not archive the active session unless the task is complete or explicitly paused.
 """

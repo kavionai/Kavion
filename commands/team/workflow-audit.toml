@@ -1,34 +1,17 @@
-description = "Audit ForgeKit process compliance across memory, session, QA, review, and handoff gates."
+description = "Audit the current ForgeKit workflow without doing implementation work."
 
 prompt = """
-Audit the ForgeKit workflow state for this project.
+Audit the current ForgeKit workflow.
 
-User request:
-{{args}}
+Use MCP tool `forgekit_status` when available, and use `forgekit_gate` if a gate result is needed.
 
-Use MCP tool `forgekit_check_workflow` when available with report writing if the user asks for a report. If MCP is unavailable, inspect project memory, active sessions, reports, and memory index directly.
+Check:
+- session state
+- current work
+- plan presence
+- report freshness
+- index state
+- expired notes or oversized memory files
 
-Audit:
-- memory initialization
-- active session state
-- current workflow phase
-- unresolved blockers
-- verification/test evidence
-- QA deferrals
-- code review evidence
-- security review evidence when sensitive work exists
-- memory index presence and staleness
-- whether the final status is honest
-
-Rules:
-1. Do not call work "complete" if QA is deferred or blocking gates remain.
-2. Distinguish implementation-complete from release-ready.
-3. Recommend the next command, not vague advice.
-4. Do not perform implementation work.
-
-Final response must include:
-- decision: pass, pass-with-risk, or block
-- missing gates
-- deferred gates
-- recommended next command
+Return the gaps and the next corrective command only.
 """

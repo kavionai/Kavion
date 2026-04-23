@@ -1,0 +1,17 @@
+test:
+  command: null
+  coverage_file: null
+  coverage_threshold: 0
+review:
+  required_sections:
+    - Issues
+    - Verified
+security:
+  trigger_paths:
+    - src/auth/**
+    - src/crypto/**
+    - "**/Dockerfile"
+    - package.json
+  command: null
+ship:
+  default_branch: main

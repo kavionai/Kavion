@@ -42,15 +42,15 @@ git status --short
 Suggested title:
 
 ```text
-Release ForgeKit v0.4.0
+Release ForgeKit v0.5.0
 ```
 
 Suggested summary:
 
 ```text
-- add workflow enforcement commands and MCP tools
-- distinguish implementation-complete from release-ready
-- block handoff when QA/review/security/memory gates are missing
+- ship ForgeKit 2 memory layout and BM25 search
+- move workflow enforcement to real gates
+- add migration support from the old memory layout
 ```
 
 ## GitHub Repo Setup
@@ -84,13 +84,13 @@ git push -u origin main
 
 ## Recommended First Release State
 
-Publish as a beta or `v0.4.0` style release, not as a fully stable
+Publish as a beta or `v0.5.0` style release, not as a fully stable
 automation platform.
 
 Current honest positioning:
 
 - ready to use
 - strong beta
-- local memory and dashboard tooling are in place
-- workflow enforcement catches false completion states
+- ForgeKit 2 memory, BM25 search, and real gates are in place
+- migration support exists for older project layouts
 - not yet fully battle-tested for long autonomous write-heavy runs across many projects

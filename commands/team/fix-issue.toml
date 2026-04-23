@@ -1,80 +1,19 @@
-description = "Fix a bug or issue using the ForgeKit team workflow."
+description = "Fix an issue using the ForgeKit workflow."
 
 prompt = """
 User request:
 {{args}}
 
-Use the ForgeKit issue-fix workflow.
-
-Consult these ForgeKit skill files as workflow guidance:
-- github-workflow
-- requirements-definition
-- execution-planning
-- test-verification
-- code-review-workflow
-- project-memory-workflow
+Use the ForgeKit bug-fix workflow.
 
 Required flow:
-1. If the request references a real GitHub issue, PR, or repository ticket, use github-workflow-manager to summarize. Otherwise, treat the user's request as the issue statement.
-
-2. Start with direct repository inspection for up to 5-8 clearly relevant files. Find:
-   - likely root cause
-   - affected files
-   - existing patterns to follow
-   If the issue mentions project memory, session state, templates, commands, or workflow completeness:
-   - choose `devops-docs-engineer` as the primary specialist by default
-   - inspect only this fast-path file set first:
-     - `.gemini/context/current-work.md`
-     - `forgekit/skills/project-memory-workflow/SKILL.md`
-     - `forgekit/skills/session-state-workflow/SKILL.md`
-     - `forgekit/commands/team/init-project.toml`
-     - `forgekit/commands/team/memory-update.toml`
-     - `forgekit/commands/team/session-update.toml`
-     - `forgekit/templates/project-memory/GEMINI.md`
-     - `forgekit/templates/project-memory/context/current-work.md`
-   - do not inspect additional commands, policies, manifests, or unrelated templates unless one specific mismatch in the fast-path file set points there
-
-3. Reproduction:
-   - For code/runtime bugs, attempt reproduction with a script or test case before proposing a fix.
-   - For docs/config/project-memory/workflow bugs, treat a concrete file inconsistency or missing required file/command/template as sufficient reproduction.
-   - Use `qa-test-engineer` when extra verification is needed.
-
-3a. Planning:
-   - For Standard, multi-file, security, database, GitHub, or workflow issues, write a concise plan to `.gemini/forgekit/plans/<issue-slug>-plan.md` before implementation.
-   - Express fixes may keep the plan inline in the active session.
-
-4. Implementation Agent: Choose exactly one primary specialist:
-   - frontend-engineer for UI/client bugs
-   - backend-engineer for API/service/auth bugs
-   - database-engineer for schema/query/migration bugs
-   - devops-docs-engineer for docs/config/project-memory/workflow issues
-   - ai-automation-engineer for LLM/agent/tool bugs
-
-5. Convergence: After the bounded inspection and reproduction, do one of these immediately:
-   - propose a concrete fix and implement it
-   - report that no concrete defect was found in the inspected files
-   - report the single missing dependency or ambiguity that blocks a safe fix
-   For project-memory or workflow-completeness issues, do not continue broad research after the fast-path file set. Either fix the concrete mismatch you found or stop with a bounded diagnosis.
-
-6. Verification: Use `qa-test-engineer` to run regression tests.
-
-7. Review: Use `code-reviewer` before final response.
-
-7a. Evidence reports:
-   - For Standard work, write QA/test and code-review reports under `.gemini/forgekit/reports/`.
-   - If security-engineer is used, write a security report under `.gemini/forgekit/reports/`.
-   - If writes are blocked, list deferred report files in the final response.
-
-8. Memory closeout:
-   - Update project memory and active session state when writes are permitted.
-   - Refresh `.gemini/forgekit/memory/` using MCP tool `forgekit_index_memory` when available.
-   - If MCP is not enabled, run `/team:memory-index` logic manually.
-   - Run a workflow checkpoint using MCP tool `forgekit_check_workflow` when available.
-   - If memory or index refresh is blocked, report the exact deferred update.
-
-Do not skip directly to code editing unless the issue is trivial.
-Do not spend many turns on broad exploration before proposing a focused fix.
-If the issue is about project memory or workflow completeness, prefer `devops-docs-engineer`.
-If a step is skipped, briefly explain why.
-Final response must include a Memory section with plan/report status, memory update, index refresh status, and checkpoint decision.
+1. Read `.gemini/forgekit/CURRENT.md` first.
+2. Read `.gemini/forgekit/PROJECT.md` and `.gemini/forgekit/DECISIONS.md` only if needed.
+3. Create or update `.gemini/forgekit/session.json`.
+4. For multi-step fixes, write a plan under `.gemini/forgekit/plans/`.
+5. Diagnose root cause before implementation.
+6. Verify with real commands and gates, not only narrative claims.
+7. Write evidence reports under `.gemini/forgekit/reports/` when useful.
+8. Before final response, update `.gemini/forgekit/CURRENT.md`, session state, and the index.
+9. Run a checkpoint before calling the issue fixed.
 """

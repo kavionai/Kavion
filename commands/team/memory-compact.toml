@@ -1,25 +1,14 @@
-description = "Compact ForgeKit memory by keeping hot memory concise and moving detail into notes or archive."
+description = "Compact ForgeKit 2 memory safely."
 
 prompt = """
-Compact ForgeKit project memory.
+Compact ForgeKit 2 memory safely.
 
-Goal:
-Keep hot memory small while preserving useful detail in notes, reports, or archive.
+Required:
+1. Keep `.gemini/forgekit/CURRENT.md` focused on the active task only.
+2. Delete expired notes under `.gemini/forgekit/notes/` unless marked persistent.
+3. Report oversized PROJECT.md, CURRENT.md, or DECISIONS.md.
+4. Refresh `.gemini/forgekit/index/` after compaction if indexing is in use.
 
-Rules:
-1. Do not delete useful information.
-2. Move old task detail out of `.gemini/context/current-work.md`.
-3. Keep `.gemini/context/current-work.md` focused on active task, status, blockers, and next step.
-4. Move detailed history to `.gemini/archive/` or `.gemini/notes/`.
-5. Update `.gemini/forgekit/memory/` index after compaction if indexing is in use.
-6. Never store secrets.
-7. Use MCP tool `forgekit_compact_memory` when available. Start with dry-run unless the user asked for actual compaction.
-8. Archive completed active sessions instead of deleting them.
-
-Final response must include:
-- hot memory files changed
-- notes/archive files changed
-- completed sessions archived
-- index refresh status
-- remaining risks
+Use MCP tool `forgekit_memory_gc` when available.
+Do not delete useful live session state.
 """

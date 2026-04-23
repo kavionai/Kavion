@@ -1,0 +1,21 @@
+description = "Run a ForgeKit 2 gate."
+
+prompt = """
+Run a ForgeKit 2 gate for this project.
+
+User input:
+{{args}}
+
+Use MCP tool `forgekit_gate` when available.
+
+Allowed gates:
+- status
+- plan
+- test
+- review
+- security
+- ship
+
+Prefer real command output and filesystem state over self-reported claims.
+If a gate writes a report, store it under `.gemini/forgekit/reports/`.
+"""

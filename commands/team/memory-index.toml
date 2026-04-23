@@ -1,39 +1,29 @@
-description = "Build or refresh the local ForgeKit memory index for this project."
+description = "Build or refresh the local ForgeKit 2 memory index for this project."
 
 prompt = """
-Build or refresh the local ForgeKit memory index.
+Build or refresh the local ForgeKit 2 memory index.
 
-Use MCP tool `forgekit_index_memory` when available. If the MCP server is not enabled, create or update the index manually using normal file tools.
+Use MCP tool `forgekit_build_index` when available. If the MCP server is not enabled, create or update the index manually using normal file tools.
 
 Index these sources:
-- `.gemini/context/`
-- `.gemini/notes/`
-- `.gemini/forgekit/sessions/`
+- `.gemini/forgekit/PROJECT.md`
+- `.gemini/forgekit/DECISIONS.md`
+- `.gemini/forgekit/CURRENT.md`
+- `.gemini/forgekit/session.json`
+- `.gemini/forgekit/history.jsonl`
 - `.gemini/forgekit/plans/`
 - `.gemini/forgekit/reports/`
-- `.gemini/archive/`
+- `.gemini/forgekit/notes/`
 
 Write index files under:
-- `.gemini/forgekit/memory/manifest.json`
-- `.gemini/forgekit/memory/memory.jsonl`
-- `.gemini/forgekit/memory/vectors.jsonl`
-- `.gemini/forgekit/memory/lancedb/` when LanceDB is installed and `FORGEKIT_VECTOR_BACKEND` is `auto` or `lancedb`
+- `.gemini/forgekit/index/chunks.jsonl`
+- `.gemini/forgekit/index/bm25.json`
+- `.gemini/forgekit/index/.dirty`
 
 Rules:
-1. Markdown files remain the source of truth.
+1. Markdown and session files remain the source of truth.
 2. The index is only a searchable cache.
-3. Store source path, chunk id, chunk type, source hash, updated time, tags, and content preview.
-4. Keep chunks small enough for recall.
-5. Do not index secrets or `.env` files.
-6. If no memory files exist, report that `/team:init-project` should run first.
-7. Prefer local LanceDB when available, but fall back to JSONL/hash-vector recall without failing the workflow.
-
-Final response must include:
-- indexed file count
-- indexed chunk count
-- active backend
-- fallback status if LanceDB is unavailable
-- skipped files
-- memory index path
-- next recommended command
+3. Use heading-aware chunks when possible.
+4. Do not index secrets or `.env` files.
+5. If no memory files exist, report that `/team:init-project` should run first.
 """

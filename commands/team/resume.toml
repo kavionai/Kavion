@@ -1,22 +1,13 @@
-description = "Resume an active ForgeKit session or task."
+description = "Resume the current ForgeKit task from saved project memory."
 
 prompt = """
-Resume ForgeKit work.
+Resume the current ForgeKit task.
 
-User request:
-{{args}}
+Required:
+1. Read `.gemini/forgekit/session.json`.
+2. Read `.gemini/forgekit/CURRENT.md`.
+3. Read `.gemini/forgekit/PROJECT.md` or `.gemini/forgekit/DECISIONS.md` only if needed.
+4. Continue from the saved next step.
 
-Use these ForgeKit skills when available:
-- session-state-workflow
-- orchestration-workflow
-- project-memory-workflow
-
-Required flow:
-1. Read active session state from `.gemini/forgekit/sessions/active/`.
-2. Read `.gemini/context/current-work.md` if present.
-3. Summarize current state before taking action.
-4. Continue from the recorded next step.
-5. If no active session exists, say so and suggest `/team:orchestrate` or `/team:fix-issue`.
-
-Do not restart the task from scratch unless session state is missing or stale.
+Do not restart planning from scratch if a valid session and plan already exist.
 """

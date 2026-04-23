@@ -10,29 +10,29 @@ Use ForgeKit for serious software work: feature implementation, bug fixes, debug
 - The developer talks to the main agent.
 - The main agent delegates to specialist agents when useful.
 - Specialist agents report back to the main agent.
-- Specialist agents should not assume they can call other specialist agents directly.
 - Do not call every agent for every task.
 
 ## Core Workflow
 
 For non-trivial coding work:
 
-1. Consult relevant ForgeKit skill files when available. If the runtime exposes skill activation tools, use them. Otherwise, read the skill files directly and follow them.
-2. Check whether project memory exists. If `GEMINI.md` or `.gemini/context/current-work.md` is missing, initialize project memory before implementation or report that memory initialization is required.
-3. Read project memory before planning implementation.
-4. For Standard work, create or update task session state under `.gemini/forgekit/sessions/active/` before implementation when writes are permitted.
-5. Prefer direct inspection for small or localized tasks. Use built-in `codebase_investigator` only when the codebase is broad, ambiguous, or still unclear after inspecting the most relevant files.
-6. Select the correct specialist agent for implementation.
-7. Use `qa-test-engineer` for verification.
-8. Use `security-engineer` when auth, permissions, secrets, payments, user data, or external input are involved.
-9. Use `code-reviewer` before the final response.
-10. Use `github-workflow-manager` for GitHub issues, branches, PRs, review comments, and CI status.
-11. Before final response, update project memory and session state when writes are permitted. If writes are blocked, include the exact deferred memory/session update in the final response.
-12. After updating memory or session state, refresh `.gemini/forgekit/memory/` using `forgekit_index_memory` when MCP is available, or `/team:memory-index`/manual index files when it is not. If refresh is blocked, report it as deferred.
-13. Run a workflow checkpoint before handoff. Do not call work release-ready when QA is deferred, review is missing, security review is missing for sensitive work, blockers remain, or memory index is stale.
+1. Consult relevant ForgeKit skill files when available.
+2. Check whether ForgeKit 2 project memory exists. If `GEMINI.md` or `.gemini/forgekit/CURRENT.md` is missing, initialize project memory before implementation or report that memory initialization is required.
+3. Read `.gemini/forgekit/CURRENT.md` first.
+4. Read `.gemini/forgekit/PROJECT.md` and `.gemini/forgekit/DECISIONS.md` only when the task actually needs them.
+5. For Standard work, create or update `.gemini/forgekit/session.json` before implementation when writes are permitted.
+6. Use plans for multi-step work under `.gemini/forgekit/plans/plan-<slug>.md`.
+7. Use real commands and filesystem state for verification and gates.
+8. Use `qa-test-engineer` for verification.
+9. Use `security-engineer` when auth, permissions, secrets, payments, user data, or external input are involved.
+10. Use `code-reviewer` before the final response.
+11. Use `github-workflow-manager` for GitHub issues, branches, PRs, review comments, and CI status.
+12. Before final response, update project memory and session state when writes are permitted.
+13. After updating memory or session state, refresh `.gemini/forgekit/index/` using `forgekit_build_index` when MCP is available, or `/team:memory-index` logic when it is not.
+14. Run a workflow checkpoint before handoff. Do not call work release-ready when ship gate blocks.
 
 Do not treat memory as optional for non-trivial work.
-Final responses for non-trivial work must include a "Memory" section showing updated, unchanged, deferred memory files, memory index refresh status, and checkpoint decision.
+Final responses for non-trivial work must include a Memory section showing updated, unchanged, or deferred memory files, index refresh status, and gate/checkpoint status.
 
 ## Preferred Commands
 
@@ -50,18 +50,18 @@ Final responses for non-trivial work must include a "Memory" section showing upd
 - `/team:quality-gate`
 - `/team:checkpoint`
 - `/team:workflow-audit`
-- `/team:handoff`
 - `/team:release-readiness`
-- `/team:security-audit`
-- `/team:perf-check`
-- `/team:a11y-audit`
-- `/team:compliance-check`
 - `/team:memory-update`
 - `/team:memory-index`
 - `/team:memory-search`
 - `/team:memory-audit`
 - `/team:memory-compact`
 - `/team:dashboard`
+- `/forge:init-project`
+- `/forge:status`
+- `/forge:gate`
+- `/forge:migrate`
+- `/forge:search`
 
 If a normal workflow step is skipped, briefly explain why.
 

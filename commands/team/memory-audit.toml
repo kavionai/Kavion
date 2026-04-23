@@ -1,24 +1,16 @@
-description = "Audit ForgeKit memory for stale, oversized, missing, or inconsistent project state."
+description = "Audit ForgeKit 2 memory hygiene."
 
 prompt = """
-Audit ForgeKit project memory.
-
-Use MCP tool `forgekit_audit_memory` when available. If the MCP server is not enabled, inspect memory files directly.
+Audit ForgeKit 2 project memory.
 
 Check:
-- required hot memory files exist
-- `.gemini/context/current-work.md` is current and concise
-- `.gemini/context/commands.md` and `testing.md` reflect the project
-- `.gemini/context/decisions.md` contains only real decisions
-- session files exist for active non-trivial work
-- old session/report details are archived or summarized
-- `.gemini/forgekit/memory/manifest.json` exists if memory indexing is in use
-- no secrets or `.env` contents are stored in memory
+- `.gemini/forgekit/CURRENT.md` is current and concise
+- `.gemini/forgekit/PROJECT.md` stays within repo-level memory
+- `.gemini/forgekit/DECISIONS.md` contains only real decisions
+- `.gemini/forgekit/session.json` is current
+- `.gemini/forgekit/index/` exists and is not stale
+- expired notes or oversized files are reported
 
-Final response must include:
-- pass, pass-with-risk, or block
-- missing files
-- stale files
-- oversized files
-- recommended cleanup
+Use MCP tool `forgekit_status` or `forgekit_memory_gc` when available.
+Return the issues and the exact next corrective command.
 """

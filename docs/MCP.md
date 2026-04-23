@@ -1,88 +1,57 @@
-# MCP Setup
+# ForgeKit MCP
 
-ForgeKit works without MCP, but MCP gives the team stronger workflow tools:
-
-- create and inspect sessions
-- build and search the local memory index
-- audit missing or stale memory
-- compact completed sessions and oversized hot memory
-- evaluate workflow checkpoints, handoff, and release readiness
-- show a project dashboard
-- use optional local LanceDB vector search
-
-## Install
-
-From the extension root:
-
-```bash
-cd mcp-server
-npm install
-npm run check
-```
-
-LanceDB is optional. If the native package does not install on a machine,
-ForgeKit still works with the JSONL/hash-vector backend.
-
-## Enable
-
-Add this block to `gemini-extension.json` after the MCP dependencies are
-installed:
-
-```json
-{
-  "mcpServers": {
-    "forgekit": {
-      "command": "node",
-      "args": ["${extensionPath}${/}mcp-server${/}index.js"],
-      "cwd": "${extensionPath}${/}mcp-server",
-      "env": {
-        "FORGEKIT_WORKSPACE_PATH": "${workspacePath}",
-        "FORGEKIT_VECTOR_BACKEND": "auto"
-      }
-    }
-  }
-}
-```
-
-Restart Gemini CLI after changing extension-level config.
-
-## Backend Modes
-
-Use `FORGEKIT_VECTOR_BACKEND` to control local recall:
-
-- `auto`: use LanceDB when installed, otherwise JSONL/hash-vector fallback
-- `lancedb`: prefer local LanceDB
-- `jsonl`: force the dependency-light local backend
-
-The memory source of truth remains markdown under `.gemini/`. The index under
-`.gemini/forgekit/memory/` is a rebuildable cache.
+ForgeKit 2 uses an MCP server for workspace memory, search, migration, and real gates.
 
 ## Tools
 
 - `forgekit_initialize_workspace`
-- `forgekit_create_session`
-- `forgekit_get_status`
+- `forgekit_update_session`
 - `forgekit_archive_session`
-- `forgekit_index_memory`
-- `forgekit_search_memory`
-- `forgekit_audit_memory`
-- `forgekit_compact_memory`
-- `forgekit_dashboard`
-- `forgekit_check_workflow`
-- `forgekit_record_checkpoint`
-- `forgekit_handoff_report`
-- `forgekit_release_readiness`
+- `forgekit_build_index`
+- `forgekit_search`
+- `forgekit_read_chunk`
+- `forgekit_status`
+- `forgekit_gate`
+- `forgekit_write_note`
+- `forgekit_memory_gc`
+- `forgekit_migrate`
 
-## Recommended Test
+Compatibility aliases still exist for the older `forgekit_index_memory`, `forgekit_search_memory`, `forgekit_dashboard`, `forgekit_check_workflow`, and `forgekit_release_readiness` names.
 
-Inside a sample project, run:
+## Index
+
+The MCP server builds:
 
 ```text
-/team:init-project
-/team:feature "Build a small endpoint and tests"
-/team:dashboard
-/team:memory-search "current task"
+.gemini/forgekit/index/chunks.jsonl
+.gemini/forgekit/index/bm25.json
 ```
 
-The final response for non-trivial work should include memory files changed and
-memory index refresh status.
+This replaces the older LanceDB/vector setup.
+
+## Gates
+
+`forgekit_gate` supports:
+
+- `status`
+- `plan`
+- `test`
+- `review`
+- `security`
+- `ship`
+
+The gate model prefers:
+
+- real command exit codes
+- git state
+- report freshness
+- session state
+
+## Install
+
+From `mcp-server/`:
+
+```bash
+npm install
+npm run check
+```

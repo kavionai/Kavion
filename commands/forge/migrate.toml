@@ -1,0 +1,22 @@
+description = "Preview or apply migration to ForgeKit 2 memory layout."
+
+prompt = """
+Migrate this project from the old ForgeKit layout to ForgeKit 2.
+
+User input:
+{{args}}
+
+Use MCP tool `forgekit_migrate` when available.
+
+Default to dry-run unless the user clearly asks to apply the migration.
+
+Target layout:
+- `.gemini/forgekit/PROJECT.md`
+- `.gemini/forgekit/DECISIONS.md`
+- `.gemini/forgekit/CURRENT.md`
+- `.gemini/forgekit/session.json`
+- `.gemini/forgekit/history.jsonl`
+- `.gemini/forgekit/gates.yaml`
+- `.gemini/forgekit/index/chunks.jsonl`
+- `.gemini/forgekit/index/bm25.json`
+"""

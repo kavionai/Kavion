@@ -4,6 +4,32 @@
 
 - No unreleased changes yet.
 
+## 0.5.0 - 2026-04-23
+
+- Reworked ForgeKit around the new ForgeKit 2 memory layout:
+  - `.gemini/forgekit/PROJECT.md`
+  - `.gemini/forgekit/DECISIONS.md`
+  - `.gemini/forgekit/CURRENT.md`
+  - `.gemini/forgekit/session.json`
+  - `.gemini/forgekit/history.jsonl`
+  - `.gemini/forgekit/gates.yaml`
+  - `.gemini/forgekit/index/chunks.jsonl`
+  - `.gemini/forgekit/index/bm25.json`
+- Replaced the old LanceDB/vector memory cache with a local BM25 index.
+- Added new MCP tools:
+  - `forgekit_build_index`
+  - `forgekit_search`
+  - `forgekit_read_chunk`
+  - `forgekit_status`
+  - `forgekit_gate`
+  - `forgekit_write_note`
+  - `forgekit_memory_gc`
+  - `forgekit_migrate`
+- Added ForgeKit 2 slash commands under `/forge:*`.
+- Kept compatibility aliases for older `/team:*` and legacy MCP tool flows.
+- Added migration support from the old `.gemini/context/` and `sessions/active/` layout.
+- Changed workflow enforcement to real gates based on command output and filesystem state.
+
 ## 0.4.1 - 2026-04-23
 
 - Bumped patch version after the Standard workflow plan/report enforcement fix

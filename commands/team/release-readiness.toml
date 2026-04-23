@@ -1,29 +1,21 @@
-description = "Check whether the active ForgeKit task is ready for release, PR, or archive."
+description = "Decide whether the current ForgeKit task is truly ready to ship, archive, or hand off."
 
 prompt = """
-Check ForgeKit release readiness.
+Evaluate release readiness for the current ForgeKit task.
 
-User request:
-{{args}}
+Use MCP tool `forgekit_gate` with `ship` when available.
 
-Use MCP tool `forgekit_release_readiness` when available. If MCP is unavailable, manually inspect active session state, reports, memory files, and memory index.
+The decision must come from real state:
+- plan file presence and file references
+- test command exit code
+- review report freshness
+- security command result when triggered
+- git status cleanliness
+- branch safety
+- current session state
 
-Release readiness requires:
-1. Requirements satisfied.
-2. Tests or equivalent verification passed.
-3. QA is not deferred.
-4. Standard/multi-phase work has an implementation plan file.
-5. QA/test evidence report is written for Standard work.
-6. Code review completed and report is written for Standard work.
-7. Security review completed and report is written for sensitive work.
-8. No unresolved blockers.
-9. Project memory and session state updated.
-10. Memory index current.
-11. GitHub branch/PR state clear when applicable.
-
-Return one status:
-- ready
-- not-ready
-
-If not-ready, recommend exactly one next command.
+Return:
+- ready or not-ready
+- exact blocking gate
+- next command
 """

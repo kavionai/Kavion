@@ -1,0 +1,21 @@
+description = "Show ForgeKit 2 status for this project."
+
+prompt = """
+Show ForgeKit 2 status for this project.
+
+Use MCP tool `forgekit_status` when available.
+
+Check:
+- `.gemini/forgekit/CURRENT.md`
+- `.gemini/forgekit/session.json`
+- `.gemini/forgekit/index/`
+- git branch and git status
+
+Return:
+- active task
+- current phase/status
+- blockers
+- next step
+- memory/index health
+- latest plans/reports
+"""

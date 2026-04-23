@@ -3,63 +3,31 @@
 </p>
 
 <p align="center">
-  <strong>Turn Gemini CLI into a structured AI software team with project memory, specialist agents, MCP tools, QA, review, and GitHub workflow.</strong>
+  <strong>Turn Gemini CLI into a structured AI software team with project memory, specialist agents, real workflow gates, and local BM25 memory search.</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/kalpeshchouhan/forgekit"><img alt="Version" src="https://img.shields.io/badge/version-0.4.1-202124"></a>
+  <a href="https://github.com/kalpeshchouhan/forgekit"><img alt="Version" src="https://img.shields.io/badge/version-0.5.0-202124"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-00A887"></a>
   <img alt="Gemini CLI" src="https://img.shields.io/badge/Gemini%20CLI-extension-4C7BE8">
   <img alt="MCP" src="https://img.shields.io/badge/MCP-supported-D9A000">
-  <img alt="Memory" src="https://img.shields.io/badge/memory-LanceDB%20%7C%20JSONL-D64550">
+  <img alt="Memory" src="https://img.shields.io/badge/memory-BM25%20local-D64550">
 </p>
 
 # ForgeKit
 
-ForgeKit is a Gemini CLI extension that turns a single Gemini session into a
-structured software team workflow.
+ForgeKit is a Gemini CLI extension that turns a single Gemini session into a structured software team workflow.
 
-It provides:
+ForgeKit 2 changes the memory model:
 
-- specialist agents for frontend, backend, database, review, security, QA, and
-  docs/memory work
-- team commands for orchestration, bug fixing, review, session state, and
-  quality gates
-- project-memory and session-state conventions under `.gemini/`
-- local memory index/search commands with token-safe recall limits
-- optional LanceDB-backed local vector search with JSONL fallback
-- workflow enforcement for checkpoints, handoff, and release readiness
-- optional policy and MCP tooling for stricter workflow control
+- `PROJECT.md`, `DECISIONS.md`, and `CURRENT.md` replace the old `.gemini/context/` sprawl
+- `session.json` and `history.jsonl` replace `sessions/active/` and `sessions/archive/`
+- `chunks.jsonl` and `bm25.json` replace the old LanceDB and vector JSONL memory cache
+- gates use real command output and filesystem state instead of trusting self-written reports
 
 <p align="center">
   <img src="assets/forgekit-workflow.svg" alt="ForgeKit workflow diagram" width="100%">
 </p>
-
-This repository follows the official Gemini CLI extension shape:
-
-- `gemini-extension.json` defines the extension.
-- `GEMINI.md` provides extension context.
-- `commands/` contains custom slash commands.
-- `agents/` contains custom subagents.
-- `policies/` contains workflow guardrails.
-- `skills/` contains workflow playbooks.
-- `templates/` contains project memory templates.
-- `mcp-server/` contains the optional workflow-state MCP server.
-
-## Status
-
-ForgeKit is usable now as a strong beta:
-
-- extension loading works
-- core memory/session workflow exists
-- orchestration, bug-fix, and quality-gate flows work
-- memory indexing can refresh automatically through the MCP server
-- dashboard, audit, search, and pruning commands are available
-- workflow checkpointing helps prevent false "done" states
-
-The main remaining risk is Gemini CLI runtime compliance: if the main model
-ignores a workflow instruction, ForgeKit can detect and report the missing
-memory/index update, but it cannot force Gemini CLI to execute every command.
 
 ## Quick Start
 
@@ -69,61 +37,92 @@ From this directory:
 gemini extensions link .
 ```
 
-Restart Gemini CLI after linking or changing extension-level files.
+Restart Gemini CLI after linking or changing extension files.
 
 Inside Gemini CLI:
 
 ```text
 /extensions list
+/team:init-project
+/team:feature "Build a settings page"
+/team:checkpoint
+/team:release-readiness
 ```
 
-Then test:
+New ForgeKit 2 commands:
 
 ```text
-/team:init-project
-/team:orchestrate "Build a settings page"
-/team:fix-issue "Memory workflow is incomplete"
-/team:session-update
-/team:quality-gate
-/team:dashboard
+/forge:init-project
+/forge:status
+/forge:gate ship
+/forge:migrate
+/forge:search "auth flow"
 ```
 
-Validation commands:
+## Memory Layout
 
-```bash
-gemini extensions validate .
-python3 -c "import tomllib; tomllib.load(open('commands/team/fix-issue.toml','rb'))"
-node --check mcp-server/index.js
+ForgeKit 2 uses:
+
+```text
+.gemini/forgekit/
+  PROJECT.md
+  DECISIONS.md
+  DECISIONS-archive.md
+  CURRENT.md
+  session.json
+  history.jsonl
+  gates.yaml
+  plans/
+  reports/
+  notes/
+  index/
+    chunks.jsonl
+    bm25.json
+    .dirty
 ```
 
-## Commands
+Design rules:
 
-- `/team:init-project`
-- `/team:orchestrate`
-- `/team:fix-issue`
-- `/team:feature`
-- `/team:debug`
-- `/team:review`
-- `/team:pr`
-- `/team:status`
-- `/team:session-update`
-- `/team:resume`
-- `/team:archive`
-- `/team:quality-gate`
-- `/team:checkpoint`
-- `/team:workflow-audit`
-- `/team:handoff`
-- `/team:release-readiness`
-- `/team:security-audit`
-- `/team:perf-check`
-- `/team:a11y-audit`
-- `/team:compliance-check`
-- `/team:memory-update`
-- `/team:memory-index`
-- `/team:memory-search`
-- `/team:memory-audit`
-- `/team:memory-compact`
-- `/team:dashboard`
+- Markdown and JSON files are the source of truth.
+- The BM25 index is a rebuildable cache.
+- `CURRENT.md` and `session.json` are the hot memory.
+- `PROJECT.md` and `DECISIONS.md` are read on demand, not every turn.
+- Notes are optional and can expire.
+
+## Gates
+
+ForgeKit 2 has one gate surface:
+
+```text
+/forge:gate plan
+/forge:gate test
+/forge:gate review
+/forge:gate security
+/forge:gate ship
+```
+
+These gates rely on:
+
+- real command exit codes
+- report freshness
+- git cleanliness
+- branch state
+- current session state
+
+## MCP Server
+
+The MCP server now provides:
+
+- workspace initialization
+- session update/archive
+- BM25 index build and search
+- chunk reads
+- migration from the old memory layout
+- note writing with TTL rules
+- memory hygiene checks
+- real workflow gates
+
+Enable it after running `npm install` in `mcp-server/`.
 
 ## Docs
 
@@ -138,41 +137,3 @@ node --check mcp-server/index.js
 - [ADDING-SKILLS](docs/ADDING-SKILLS.md)
 - [CONTRIBUTING](CONTRIBUTING.md)
 - [SECURITY](SECURITY.md)
-
-## Community Files
-
-- [LICENSE](LICENSE)
-- [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md)
-- [CHANGELOG](CHANGELOG.md)
-
-## Optional Policies
-
-ForgeKit ships policy templates in `policies/`. Gemini CLI loads policies from
-`~/.gemini/policies/*.toml` or configured `policyPaths`. To activate:
-
-```bash
-mkdir -p ~/.gemini/policies
-ln -sf "$(pwd)/policies/team-guardrails.toml" ~/.gemini/policies/forgekit-team-guardrails.toml
-```
-
-## Optional MCP Workflow Server
-
-The optional MCP server powers stronger automation:
-
-- session status tools
-- memory index/search/audit tools
-- memory compaction helpers
-- workflow checkpoint and release-readiness tools
-- project dashboard
-- optional local LanceDB vector backend
-
-Enable it after running `npm install` in `mcp-server/`. See
-[MCP](docs/MCP.md).
-
-## Contributing
-
-Before opening this to other developers, read:
-
-- [CONTRIBUTING](CONTRIBUTING.md)
-- [ARCHITECTURE](docs/ARCHITECTURE.md)
-- [MEMORY](docs/MEMORY.md)

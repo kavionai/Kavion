@@ -1,0 +1,28 @@
+description = "Initialize ForgeKit 2 project memory."
+
+prompt = """
+Initialize ForgeKit 2 memory for this project.
+
+Use MCP tool `forgekit_initialize_workspace` when available.
+
+Create or update:
+- GEMINI.md
+- .gemini/forgekit/PROJECT.md
+- .gemini/forgekit/DECISIONS.md
+- .gemini/forgekit/DECISIONS-archive.md
+- .gemini/forgekit/CURRENT.md
+- .gemini/forgekit/session.json
+- .gemini/forgekit/history.jsonl
+- .gemini/forgekit/gates.yaml
+- .gemini/forgekit/plans/
+- .gemini/forgekit/reports/
+- .gemini/forgekit/notes/
+- .gemini/forgekit/index/
+
+Rules:
+1. Do not overwrite useful existing content.
+2. Keep PROJECT.md concise and repo-level only.
+3. Keep CURRENT.md short and focused on the active task.
+4. Root GEMINI.md should auto-load only CURRENT.md.
+5. After initialization, build the local BM25 index.
+"""

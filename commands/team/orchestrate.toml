@@ -6,41 +6,23 @@ User request:
 
 Use the ForgeKit orchestration workflow.
 
-Consult these ForgeKit skill files as workflow guidance:
-- orchestration-workflow
-- requirements-definition
-- execution-planning
-- architecture-design
-- session-state-workflow
-- quality-gate
-- project-memory-workflow
-
 Required behavior:
 1. Classify the task as Express or Standard.
-2. Use Express only for small, clear, low-risk work.
-3. Use Standard for ambiguous, multi-file, multi-agent, GitHub, security, database, or architecture work.
-4. Before implementation, check whether project memory exists:
+2. Before implementation, check whether ForgeKit 2 memory exists:
    - `GEMINI.md`
-   - `.gemini/context/current-work.md`
-   - `.gemini/forgekit/settings.json`
-   If missing, initialize it using the ForgeKit project-memory template before continuing, when writes are permitted.
-5. Read project memory before planning implementation.
-6. Select only the agents needed.
-7. For Standard work, create or update session state under `.gemini/forgekit/` when writes are permitted. Also write a plan to `.gemini/forgekit/plans/<task-slug>-plan.md` before implementation. If not, continue and report the deferred session/plan update.
-8. Delegate implementation to the correct specialist.
-9. Run verification and review before final response. For Standard work, write QA/test, security when applicable, and code-review evidence reports under `.gemini/forgekit/reports/`.
-10. Before final response, update:
-   - `.gemini/context/current-work.md`
-   - `.gemini/context/decisions.md` only for real decisions
-   - `.gemini/context/commands.md` or `.gemini/context/testing.md` only if changed
-   - active session state under `.gemini/forgekit/sessions/active/`
-11. After memory/session updates, refresh `.gemini/forgekit/memory/` using MCP tool `forgekit_index_memory` when available. If MCP is not enabled, run `/team:memory-index` logic manually. If refresh is blocked, report it as deferred.
-12. Run a workflow checkpoint using MCP tool `forgekit_check_workflow` when available, or `/team:checkpoint` logic manually. Do not claim release readiness when checkpoint blocks.
-   If writes are blocked, include the exact deferred updates in the final response.
+   - `.gemini/forgekit/CURRENT.md`
+   - `.gemini/forgekit/session.json`
+3. Read `.gemini/forgekit/CURRENT.md` first.
+4. Read `.gemini/forgekit/PROJECT.md` or `.gemini/forgekit/DECISIONS.md` only when relevant.
+5. For Standard work, create or update `.gemini/forgekit/session.json` and write a plan under `.gemini/forgekit/plans/`.
+6. Delegate only to the needed specialist agents.
+7. Use real commands and gates for verification.
+8. Write reports under `.gemini/forgekit/reports/` when verification/review/security actually happens.
+9. Update `.gemini/forgekit/CURRENT.md` and session state before the final response.
+10. Refresh `.gemini/forgekit/index/` after memory changes.
+11. Run a checkpoint before handoff.
 
 Do not call every agent by default.
-Do not edit code before understanding likely impact.
-Do not finish Standard work without plan/report files, unless writes are blocked and the deferred files are listed.
-Do not finish Standard work without a Memory section in the final response, including plan/report status, memory index refresh status, and checkpoint decision.
-If a normal phase is skipped, briefly explain why.
+Do not read large memory files unless the task needs them.
+Do not finish Standard work without a Memory section in the final response.
 """

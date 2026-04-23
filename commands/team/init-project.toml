@@ -1,39 +1,32 @@
-description = "Initialize ForgeKit project memory files."
+description = "Initialize ForgeKit 2 project memory files."
 
 prompt = """
-Initialize ForgeKit memory for this project.
+Initialize ForgeKit 2 memory for this project.
 
-Consult the `project-memory-workflow` skill file as guidance. If the runtime supports skill activation, it may use that path. Otherwise, read the skill file directly.
+Consult the `project-memory-workflow` skill file as guidance.
 
 Create or update these files if missing:
 - GEMINI.md
-- .gemini/context/project-brief.md
-- .gemini/context/architecture.md
-- .gemini/context/commands.md
-- .gemini/context/testing.md
-- .gemini/context/current-work.md
-- .gemini/context/decisions.md
-- .gemini/context/github.md
-- .gemini/notes/
-- .gemini/archive/
-- .gemini/forgekit/settings.json
-- .gemini/forgekit/sessions/active/
-- .gemini/forgekit/sessions/archive/
+- .gemini/forgekit/PROJECT.md
+- .gemini/forgekit/DECISIONS.md
+- .gemini/forgekit/DECISIONS-archive.md
+- .gemini/forgekit/CURRENT.md
+- .gemini/forgekit/session.json
+- .gemini/forgekit/history.jsonl
+- .gemini/forgekit/gates.yaml
 - .gemini/forgekit/plans/
 - .gemini/forgekit/reports/
-- .gemini/forgekit/memory/
+- .gemini/forgekit/notes/
+- .gemini/forgekit/index/
 
 Rules:
 1. Do not overwrite existing useful content.
 2. Inspect the project enough to fill accurate starter notes.
-3. Keep each memory file concise.
-4. Root GEMINI.md should import only hot memory files.
+3. Keep PROJECT.md concise and repo-level.
+4. Root GEMINI.md should auto-load only CURRENT.md.
 5. Do not include secrets.
 6. Use ForgeKit templates from the extension:
-   - Memory files: forgekit/templates/project-memory/context/
-   - Sessions: forgekit/templates/project-memory/forgekit/session.md
-   - Plans: forgekit/templates/project-memory/forgekit/plan.md
-   - Reports: forgekit/templates/project-memory/forgekit/report.md
-7. For settings.json, refer to forgekit/config/forgekit-settings.example.json.
-8. After initialization, build the local memory index using MCP tool `forgekit_index_memory` when available. If MCP is not enabled, report `/team:memory-index` as the next command.
+   - Memory files: forgekit/templates/project-memory/forgekit/
+   - Root GEMINI: forgekit/templates/project-memory/GEMINI.md
+7. After initialization, build the local BM25 index using MCP tool `forgekit_build_index` when available. If MCP is not enabled, report `/team:memory-index` as the next command.
 """

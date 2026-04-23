@@ -1,4 +1,4 @@
-description = "Search ForgeKit 2 project memory."
+description = "Search ForgeKit 2 memory."
 
 prompt = """
 Search ForgeKit 2 project memory.
@@ -8,7 +8,7 @@ User query:
 
 Use MCP tool `forgekit_search` when available.
 
-Search:
+Search these sources through the local BM25 index:
 - `.gemini/forgekit/PROJECT.md`
 - `.gemini/forgekit/DECISIONS.md`
 - `.gemini/forgekit/CURRENT.md`
@@ -16,5 +16,5 @@ Search:
 - `.gemini/forgekit/reports/`
 - `.gemini/forgekit/notes/`
 
-Return the best matching chunks first. Read full files only when the chunks are not enough.
+Return top matching chunks first. Read full files only if needed.
 """

@@ -1,16 +1,15 @@
-# Task Report: {{Task}}
+# Report: <task-slug> - <gate>
 
-## Summary
-{{Summary}}
+**Timestamp:** 2026-04-23T00:00:00.000Z
+**Git HEAD:** unknown
 
-## Implementation Details
-- {{Detail1}}
+## Result
+PASS
 
-## Verification Results
-- {{Result1}}
+## Evidence
+- Command or file-state evidence goes here.
 
-## Remaining Risks / Tech Debt
-- {{Risk1}}
-
-## Downstream Context
-{{Context}}
+## Output excerpt
+```
+...
+```

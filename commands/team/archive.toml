@@ -1,24 +1,17 @@
-description = "Archive completed or stale ForgeKit sessions."
+description = "Archive the current ForgeKit 2 task session."
 
 prompt = """
-Archive ForgeKit session state.
-
-User request:
-{{args}}
-
-Use these ForgeKit skills when available:
-- session-state-workflow
-- project-memory-workflow
+Archive the current ForgeKit task only if it is genuinely complete.
 
 Required flow:
-1. Inspect `.gemini/forgekit/sessions/active/`.
+1. Inspect `.gemini/forgekit/session.json`.
 2. Run `/team:release-readiness` logic or MCP tool `forgekit_release_readiness` when available.
-3. Do not archive an active session as complete if release readiness is blocked.
-4. Identify completed or stale sessions.
-5. Move completed session summaries to `.gemini/forgekit/sessions/archive/`.
-6. Update `.gemini/context/current-work.md` if the active task is complete.
-7. Refresh the memory index after archiving.
-8. Do not delete important history.
+3. If release readiness is blocked, do not archive.
+4. If ready, append the current session to `.gemini/forgekit/history.jsonl`.
+5. Reset `.gemini/forgekit/session.json` to idle state.
+6. Update `.gemini/forgekit/CURRENT.md` if the active task is complete.
+7. Refresh the local index under `.gemini/forgekit/index/`.
 
-If uncertain whether a session is stale, ask before archiving.
+Do not delete useful history.
+Do not claim release-ready if ship gate is blocked.
 """
