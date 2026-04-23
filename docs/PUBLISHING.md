@@ -12,6 +12,7 @@ Use this checklist before making ForgeKit public.
    - `docs/MEMORY.md`
    - `docs/MCP.md`
    - `docs/WORKFLOW-ENFORCEMENT.md`
+   - `docs/VERSIONING.md`
 3. Run validation:
 
 ```bash
@@ -20,7 +21,17 @@ python3 -c "import tomllib; tomllib.load(open('commands/team/fix-issue.toml','rb
 node --check mcp-server/index.js
 ```
 
-4. Make sure local runtime state is not being committed:
+4. Confirm version consistency:
+
+```text
+gemini-extension.json
+mcp-server/package.json
+mcp-server/package-lock.json
+README.md
+CHANGELOG.md
+```
+
+5. Make sure local runtime state is not being committed:
 
 ```bash
 git status --short

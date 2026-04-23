@@ -26,6 +26,7 @@ node --check mcp-server/index.js
 - Keep edits focused.
 - Prefer updating an existing agent, command, or skill over creating a new one.
 - Do not add broad speculative workflow logic.
+- Follow [VERSIONING](docs/VERSIONING.md) for patch, minor, and major changes.
 - If you add a new command, make its ownership and stopping conditions explicit.
 - If you add a new agent, define clear boundaries and output format.
 - If you add a new skill, keep it procedural and short enough to be used in a
@@ -81,6 +82,7 @@ A good PR should include:
 
 - summary of what changed
 - reason for the change
+- version bump decision
 - validation run
 - runtime risk or limitation if any remains
 

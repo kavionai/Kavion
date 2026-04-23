@@ -132,6 +132,7 @@ node --check mcp-server/index.js
 - [MEMORY](docs/MEMORY.md)
 - [MCP](docs/MCP.md)
 - [WORKFLOW-ENFORCEMENT](docs/WORKFLOW-ENFORCEMENT.md)
+- [VERSIONING](docs/VERSIONING.md)
 - [PUBLISHING](docs/PUBLISHING.md)
 - [ADDING-AGENTS](docs/ADDING-AGENTS.md)
 - [ADDING-SKILLS](docs/ADDING-SKILLS.md)

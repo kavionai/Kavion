@@ -22,6 +22,7 @@
 - Extended workflow checkpointing to block missing Standard-work plan/report
   files.
 - Added workflow enforcement documentation.
+- Added versioning policy and release checklist.
 - Added README and memory-system diagram SVG assets for a more polished
   open-source project presentation.
 - Bumped extension and MCP server versions to `0.4.0`.
