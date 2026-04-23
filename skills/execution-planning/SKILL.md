@@ -15,6 +15,8 @@ Use this skill when work needs more than one step or more than one specialist.
 5. Put tests and review after implementation.
 6. Keep the plan proportional to risk.
 7. For Standard or multi-phase work, persist the plan under `.gemini/forgekit/plans/` before implementation.
+8. Prefer MCP tool `forgekit_write_plan` when available.
+9. Do not keep the only copy of the plan in chat text.
 
 ## Agent selection
 

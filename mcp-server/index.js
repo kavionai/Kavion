@@ -239,12 +239,15 @@ function defaultSession() {
     workflow: 'standard',
     phase: 'idle',
     status: 'idle',
+    active_agent: '',
     blockers: 'none',
     next_step: '',
     verification: '',
     files_touched: [],
     agents_used: [],
     gate_cache: {},
+    started_at: isoNow(),
+    last_update: isoNow(),
     updated_at: isoNow(),
   };
 }
@@ -520,11 +523,122 @@ async function writeSession(patch) {
     files_touched: uniq([...(current.files_touched || []), ...((patch.files_touched || []).filter(Boolean))]),
     agents_used: uniq([...(current.agents_used || []), ...((patch.agents_used || []).filter(Boolean))]),
     gate_cache: { ...(current.gate_cache || {}), ...(patch.gate_cache || {}) },
+    started_at: current.started_at || patch.started_at || isoNow(),
+    last_update: isoNow(),
     updated_at: isoNow(),
   };
   await writeJsonAtomic(sessionFile, next);
   await touchDirtyIndex();
   return next;
+}
+
+async function writeCurrent({
+  active_task = '',
+  status = '',
+  next_step = '',
+  blockers = 'none',
+  summary = '',
+} = {}) {
+  await ensureInitialFiles();
+
+  const body = `# Current Work
+
+- Active task: ${active_task || 'none'}
+- Status: ${status || 'idle'}
+- Next step: ${next_step || ''}
+- Blockers: ${blockers || 'none'}
+${summary ? `\n## Summary\n${normalizeWhitespace(summary)}\n` : ''}`;
+
+  const trimmed = lines(body).slice(0, maxCurrentLines).join('\n');
+  await writeTextAtomic(currentFile, `${trimmed}\n`);
+  await touchDirtyIndex();
+  return { ok: true, file: rel(currentFile) };
+}
+
+function bulletList(items) {
+  return (items || [])
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)
+    .map((item) => `- ${item}`)
+    .join('\n');
+}
+
+async function writePlan({
+  slug,
+  title = '',
+  goal = '',
+  acceptance_criteria = [],
+  steps = [],
+  files = [],
+  risks = [],
+} = {}) {
+  await ensureDirs();
+  const safeSlug = slugify(slug || title || goal);
+  const filePath = path.join(plansRoot, `plan-${safeSlug}.md`);
+  const body = `# Plan: ${title || safeSlug}
+
+## Goal
+${normalizeWhitespace(goal) || 'TBD'}
+
+## Acceptance Criteria
+${bulletList(acceptance_criteria) || '- TBD'}
+
+## Steps
+${steps.length ? steps.map((step, index) => `${index + 1}. ${String(step).trim()}`).join('\n') : '1. Inspect the relevant code.\n2. Implement the change.\n3. Verify the result.'}
+
+## Files
+${bulletList(files) || '- TBD'}
+
+## Risks
+${bulletList(risks) || '- none'}
+`;
+  await writeTextAtomic(filePath, `${body.trim()}\n`);
+  await touchDirtyIndex();
+  return { ok: true, file: rel(filePath), slug: safeSlug };
+}
+
+async function writeStructuredReport({
+  slug,
+  kind,
+  title = '',
+  result = '',
+  summary = '',
+  evidence = [],
+  files = [],
+  commands = [],
+  issues = [],
+  verified = [],
+} = {}) {
+  await ensureDirs();
+  const safeSlug = slugify(slug || title || kind);
+  const safeKind = slugify(kind || 'report');
+  const filePath = path.join(reportsRoot, `${safeSlug}-${safeKind}.md`);
+  const body = `# Report: ${title || `${safeSlug} - ${safeKind}`}
+
+**Timestamp:** ${isoNow()}
+**Result:** ${result || 'unknown'}
+
+## Summary
+${normalizeWhitespace(summary) || 'No summary provided.'}
+
+## Evidence
+${bulletList(evidence) || '- none'}
+
+## Files
+${bulletList(files) || '- none'}
+
+## Commands
+${bulletList(commands) || '- none'}
+
+## Issues
+${bulletList(issues) || '- none'}
+
+## Verified
+${bulletList(verified) || '- none'}
+`;
+  await writeTextAtomic(filePath, `${body.trim()}\n`);
+  await touchDirtyIndex();
+  return { ok: true, file: rel(filePath), slug: safeSlug, kind: safeKind };
 }
 
 async function archiveSession(reason = 'completed') {
@@ -1300,6 +1414,7 @@ server.registerTool(
         workflow: z.enum(['express', 'standard']).optional(),
         phase: z.string().optional(),
         status: z.string().optional(),
+        active_agent: z.string().optional(),
         blockers: z.string().optional(),
         next_step: z.string().optional(),
         verification: z.string().optional(),
@@ -1309,6 +1424,64 @@ server.registerTool(
       .shape,
   },
   async (payload) => text(await writeSession(payload)),
+);
+
+server.registerTool(
+  'forgekit_update_current',
+  {
+    description: 'Update the live CURRENT.md file for the active task.',
+    inputSchema: z
+      .object({
+        active_task: z.string().default(''),
+        status: z.string().default(''),
+        next_step: z.string().default(''),
+        blockers: z.string().default('none'),
+        summary: z.string().default(''),
+      })
+      .shape,
+  },
+  async (payload) => text(await writeCurrent(payload)),
+);
+
+server.registerTool(
+  'forgekit_write_plan',
+  {
+    description: 'Write or replace a structured plan file under .gemini/forgekit/plans/.',
+    inputSchema: z
+      .object({
+        slug: z.string().optional(),
+        title: z.string().default(''),
+        goal: z.string().default(''),
+        acceptance_criteria: z.array(z.string()).default([]),
+        steps: z.array(z.string()).default([]),
+        files: z.array(z.string()).default([]),
+        risks: z.array(z.string()).default([]),
+      })
+      .shape,
+  },
+  async (payload) => text(await writePlan(payload)),
+);
+
+server.registerTool(
+  'forgekit_write_report',
+  {
+    description: 'Write or replace a structured report file under .gemini/forgekit/reports/.',
+    inputSchema: z
+      .object({
+        slug: z.string().optional(),
+        kind: z.string(),
+        title: z.string().default(''),
+        result: z.string().default(''),
+        summary: z.string().default(''),
+        evidence: z.array(z.string()).default([]),
+        files: z.array(z.string()).default([]),
+        commands: z.array(z.string()).default([]),
+        issues: z.array(z.string()).default([]),
+        verified: z.array(z.string()).default([]),
+      })
+      .shape,
+  },
+  async (payload) => text(await writeStructuredReport(payload)),
 );
 
 server.registerTool(
@@ -1429,6 +1602,7 @@ server.registerTool(
         workflow,
         phase: 'intake',
         status: 'active',
+        active_agent: 'main-agent',
       }),
     ),
 );

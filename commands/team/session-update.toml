@@ -8,6 +8,7 @@ Required:
 2. If no active session exists and the task is non-trivial, create a concise session state.
 3. Update the live session with:
    - current phase
+   - active agent
    - agents used
    - files touched
    - verification run
@@ -16,7 +17,8 @@ Required:
    - last update time
 4. If a detailed plan exists, keep it under `.gemini/forgekit/plans/`.
 5. If review or QA output exists, keep it under `.gemini/forgekit/reports/`.
-6. Refresh `.gemini/forgekit/index/` after session updates.
+6. If there are reusable debugging or investigation findings, keep them under `.gemini/forgekit/notes/`.
+7. Refresh `.gemini/forgekit/index/` after session updates.
 
 Do not rewrite unrelated memory files.
 Do not archive the active session unless the task is complete or explicitly paused.

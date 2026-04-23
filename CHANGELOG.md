@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Updated the SVG workflow and memory diagrams to match the ForgeKit 2 architecture.
+- Tightened ForgeKit 2 session, plan, report, and note persistence rules.
+- Added MCP helpers for updating CURRENT.md and writing structured plan/report files.
 
 ## 0.5.0 - 2026-04-23
 

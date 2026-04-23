@@ -42,12 +42,15 @@ The live session should record:
 
 1. Create or update `session.json` before medium or complex execution.
 2. Update the session after each meaningful phase.
-3. Keep session state concise.
-4. Store detailed plans in `.gemini/forgekit/plans/`.
-5. Store review or QA reports in `.gemini/forgekit/reports/`.
-6. Archive completed sessions into `.gemini/forgekit/history.jsonl` instead of deleting them.
-7. If the runtime is read-only or approval for writes is unavailable, continue the task and report session-state updates as deferred.
-8. After session updates, refresh `.gemini/forgekit/index/`.
+3. Record the current active agent or responsible specialist when the phase changes.
+4. Do not leave the phase at `planning` once implementation has started.
+5. Keep session state concise.
+6. Store detailed plans in `.gemini/forgekit/plans/`.
+7. Store review or QA reports in `.gemini/forgekit/reports/`.
+8. Store reusable investigation notes in `.gemini/forgekit/notes/` when needed.
+9. Archive completed sessions into `.gemini/forgekit/history.jsonl` instead of deleting them.
+10. If the runtime is read-only or approval for writes is unavailable, continue the task and report session-state updates as deferred.
+11. After session updates, refresh `.gemini/forgekit/index/`.
 
 ## Output
 

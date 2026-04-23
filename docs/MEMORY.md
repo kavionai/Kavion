@@ -32,7 +32,7 @@ ForgeKit 2 uses a smaller, stricter memory model.
 
 - `session.json`
   - live structured task state
-  - phase, workflow, files touched, gate cache
+  - phase, workflow, active agent, files touched, gate cache
 
 - `PROJECT.md`
   - repo-level truths
@@ -53,6 +53,7 @@ ForgeKit 2 uses a smaller, stricter memory model.
 - `notes/`
   - optional research/debug notes
   - subject to TTL unless marked persistent
+  - should exist only when findings are reusable
 
 - `index/`
   - local BM25 search cache

@@ -4,11 +4,14 @@
   "workflow": "standard",
   "phase": "idle",
   "status": "idle",
+  "active_agent": "",
   "blockers": "none",
   "next_step": "",
   "verification": "",
   "files_touched": [],
   "agents_used": [],
   "gate_cache": {},
+  "started_at": "",
+  "last_update": "",
   "updated_at": ""
 }

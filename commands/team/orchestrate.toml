@@ -15,12 +15,18 @@ Required behavior:
 3. Read `.gemini/forgekit/CURRENT.md` first.
 4. Read `.gemini/forgekit/PROJECT.md` or `.gemini/forgekit/DECISIONS.md` only when relevant.
 5. For Standard work, create or update `.gemini/forgekit/session.json` and write a plan under `.gemini/forgekit/plans/`.
+   - Prefer MCP tools `forgekit_update_session` and `forgekit_write_plan` when available.
+   - Record phase, status, active_agent, next_step, and active specialists.
 6. Delegate only to the needed specialist agents.
-7. Use real commands and gates for verification.
-8. Write reports under `.gemini/forgekit/reports/` when verification/review/security actually happens.
-9. Update `.gemini/forgekit/CURRENT.md` and session state before the final response.
-10. Refresh `.gemini/forgekit/index/` after memory changes.
-11. Run a checkpoint before handoff.
+7. After each phase transition, update `.gemini/forgekit/session.json` again.
+   - Do not leave the active agent set to `task-planner` after implementation delegation starts.
+8. Use real commands and gates for verification.
+9. Write reports under `.gemini/forgekit/reports/` when verification/review/security actually happens.
+   - Prefer MCP tool `forgekit_write_report` when available.
+10. If research or debugging produces reusable findings, write a note under `.gemini/forgekit/notes/`.
+11. Update `.gemini/forgekit/CURRENT.md` and session state before the final response.
+12. Refresh `.gemini/forgekit/index/` after memory changes.
+13. Run a checkpoint before handoff.
 
 Do not call every agent by default.
 Do not read large memory files unless the task needs them.

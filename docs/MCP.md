@@ -6,6 +6,9 @@ ForgeKit 2 uses an MCP server for workspace memory, search, migration, and real 
 
 - `forgekit_initialize_workspace`
 - `forgekit_update_session`
+- `forgekit_update_current`
+- `forgekit_write_plan`
+- `forgekit_write_report`
 - `forgekit_archive_session`
 - `forgekit_build_index`
 - `forgekit_search`
