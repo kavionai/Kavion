@@ -25,6 +25,7 @@ Required flow:
 3. Create or update an active session under `.gemini/forgekit/sessions/active/` before implementation when writes are permitted.
 4. Use product-manager to clarify goal, users, scope, and acceptance criteria.
 5. Use task-planner to break the feature into implementation steps.
+   - For Standard or multi-phase work, write the plan to `.gemini/forgekit/plans/<task-slug>-plan.md` before implementation.
 6. Use system-architect for the technical approach if the feature is non-trivial.
 7. Use codebase_investigator only if direct inspection of the obvious files is not enough.
 8. Choose correct implementation agents:
@@ -36,18 +37,24 @@ Required flow:
 10. Use security-engineer if auth, permissions, payments, user data, or external input are involved.
 11. Use code-reviewer before final response.
 12. Use devops-docs-engineer if docs, build, CI, config, project memory, or session state changed.
-13. Before final response, update:
+13. For Standard work, write evidence reports under `.gemini/forgekit/reports/`:
+   - QA/test report after verification
+   - security report when security-engineer is used
+   - code review report before final response
+   If report writes are blocked, mark the missing reports as deferred in the final response and checkpoint.
+14. Before final response, update:
    - `.gemini/context/current-work.md`
    - `.gemini/context/decisions.md` only for real decisions
    - `.gemini/context/architecture.md` if system design changed
    - `.gemini/context/commands.md` or `.gemini/context/testing.md` if commands/tests changed
    - active session state under `.gemini/forgekit/sessions/active/`
-14. After memory/session updates, refresh `.gemini/forgekit/memory/` using MCP tool `forgekit_index_memory` when available. If MCP is not enabled, run `/team:memory-index` logic manually. If refresh is blocked, report it as deferred.
-15. Run a workflow checkpoint using MCP tool `forgekit_check_workflow` when available, or `/team:checkpoint` logic manually. Do not claim release readiness when checkpoint blocks.
+15. After memory/session updates, refresh `.gemini/forgekit/memory/` using MCP tool `forgekit_index_memory` when available. If MCP is not enabled, run `/team:memory-index` logic manually. If refresh is blocked, report it as deferred.
+16. Run a workflow checkpoint using MCP tool `forgekit_check_workflow` when available, or `/team:checkpoint` logic manually. Do not claim release readiness when checkpoint blocks.
    If writes are blocked, include the exact deferred updates in the final response.
 
 Do not over-engineer.
 Keep changes focused.
-Do not finish without a Memory section in the final response, including memory index refresh status and checkpoint decision.
+Do not finish Standard work without plan/report files, unless writes are blocked and the deferred files are listed.
+Do not finish without a Memory section in the final response, including plan/report status, memory index refresh status, and checkpoint decision.
 If a step is skipped, briefly explain why.
 """

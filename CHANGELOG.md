@@ -18,6 +18,9 @@
   - `forgekit_release_readiness`
 - Updated feature, orchestration, bug-fix, quality-gate, and archive workflows
   to require checkpoint/release-readiness decisions.
+- Required persisted plan and report evidence for Standard work.
+- Extended workflow checkpointing to block missing Standard-work plan/report
+  files.
 - Added workflow enforcement documentation.
 - Added README and memory-system diagram SVG assets for a more polished
   open-source project presentation.

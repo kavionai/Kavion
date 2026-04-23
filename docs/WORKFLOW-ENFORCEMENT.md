@@ -16,12 +16,16 @@ ForgeKit checks:
 
 - project memory exists
 - active session exists
+- Standard/multi-phase work has a persisted plan file
 - workflow phase and status are explicit
 - blockers are resolved or explicitly deferred
 - tests or verification passed
 - QA is not deferred for release readiness
+- QA/test report is written for Standard work
 - code review completed
+- code review report is written for Standard work
 - security review completed for sensitive work
+- security report is written for sensitive work
 - memory index is present and current
 
 Sensitive work includes auth, permissions, payments, secrets, tokens, user data,
@@ -88,6 +92,22 @@ If the checkpoint blocks:
 ```text
 /team:debug "Fix the blocking gate reported by /team:checkpoint"
 ```
+
+## Plan And Report Files
+
+For Standard work, ForgeKit expects durable evidence files:
+
+```text
+.gemini/forgekit/plans/<task-slug>-plan.md
+.gemini/forgekit/reports/<task-slug>-qa.md
+.gemini/forgekit/reports/<task-slug>-review.md
+.gemini/forgekit/reports/<task-slug>-security.md
+```
+
+Express work may keep the plan and evidence inline in the active session.
+
+Standard work should not finish with empty `plans/` or `reports/` folders
+unless writes were blocked and the final response lists the deferred files.
 
 ## Archive Rule
 

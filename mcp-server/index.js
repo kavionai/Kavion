@@ -460,6 +460,7 @@ async function readActiveSessions() {
       session_id: name.replace(/\.md$/, ''),
       file: path.relative(workspacePath, file),
       task: get('Task'),
+      workflow: get('Workflow'),
       status: get('Status') || 'unknown',
       phase: get('Current phase') || 'unknown',
       next_step: get('Next step'),
@@ -521,8 +522,28 @@ async function readReportEvidence() {
   return reports;
 }
 
+async function readPlanEvidence() {
+  const planDir = path.join(root, 'plans');
+  const names = await fs.readdir(planDir).catch(() => []);
+  const plans = [];
+  for (const name of names.filter((item) => item.endsWith('.md')).sort()) {
+    const file = path.join(planDir, name);
+    const content = await fs.readFile(file, 'utf8').catch(() => '');
+    plans.push({
+      file: path.relative(workspacePath, file),
+      name,
+      content,
+    });
+  }
+  return plans;
+}
+
 function reportMentions(reports, words) {
   return reports.some((report) => includesAny(`${report.name}\n${report.content}`, words));
+}
+
+function planMentions(plans, words) {
+  return plans.some((plan) => includesAny(`${plan.name}\n${plan.content}`, words));
 }
 
 async function checkWorkflow({
@@ -531,11 +552,14 @@ async function checkWorkflow({
   require_review = true,
   require_memory_index = true,
   require_security_when_sensitive = true,
+  require_plan = true,
+  require_reports = true,
   release_mode = false,
 } = {}) {
   await ensureDirs();
   const session = await findSession(session_id);
   const audit = await auditMemory();
+  const plans = await readPlanEvidence();
   const reports = await readReportEvidence();
   const gates = [];
 
@@ -582,6 +606,7 @@ async function checkWorkflow({
   const agents = fieldValue(session.content, 'Agents used');
   const phase = fieldValue(session.content, 'Current phase');
   const status = fieldValue(session.content, 'Status');
+  const workflow = fieldValue(session.content, 'Workflow') || session.workflow;
   const sessionText = session.content;
   const qaDeferred = includesAny(`${verification}\n${sessionText}`, ['qa deferred', 'verification deferred', 'tests deferred']);
   const testsPassed = includesAny(`${verification}\n${sessionText}\n${reports.map((report) => report.content).join('\n')}`, [
@@ -609,6 +634,19 @@ async function checkWorkflow({
   ]);
   const hasSecurity = includesAny(`${agents}\n${sessionText}`, ['security-engineer', 'security review']) ||
     reportMentions(reports, ['security review', 'security-engineer']);
+  const standardWork = /^standard$/i.test(workflow) || sensitive || includesAny(`${session.task}\n${agents}`, [
+    'backend-engineer',
+    'frontend-engineer',
+    'database-engineer',
+    'qa-test-engineer',
+    'security-engineer',
+    'multi',
+    'complex',
+  ]);
+  const hasPlan = plans.length > 0 && (planMentions(plans, tokenize(session.task).slice(0, 8)) || plans.length === 1);
+  const hasQaReport = reportMentions(reports, ['qa', 'test', 'verification']);
+  const hasReviewReport = reportMentions(reports, ['code review', 'reviewer', 'review']);
+  const hasSecurityReport = reportMentions(reports, ['security review', 'security']);
 
   gates.push(
     gate(
@@ -619,6 +657,18 @@ async function checkWorkflow({
       hasMeaningfulValue(session.last_updated) ? '' : 'Run /team:session-update.',
     ),
   );
+
+  if (require_plan && standardWork) {
+    gates.push(
+      gate(
+        'planning.file',
+        'Implementation plan file exists',
+        hasPlan ? 'pass' : 'block',
+        hasPlan ? `Plan files: ${plans.map((plan) => plan.file).join(', ')}.` : 'No matching plan file found in .gemini/forgekit/plans/.',
+        hasPlan ? '' : 'Create a plan under .gemini/forgekit/plans/ before continuing.',
+      ),
+    );
+  }
   gates.push(
     gate(
       'workflow.phase',
@@ -652,6 +702,17 @@ async function checkWorkflow({
       next = 'Do not mark release-ready. Run /team:debug to fix deferred QA.';
     }
     gates.push(gate('verification.tests', 'Tests or verification completed', testStatus, evidence, next));
+    if (require_reports && standardWork) {
+      gates.push(
+        gate(
+          'reports.qa',
+          'QA/test report written',
+          hasQaReport ? 'pass' : 'block',
+          hasQaReport ? 'QA/test report evidence found.' : 'No QA/test report found in .gemini/forgekit/reports/.',
+          hasQaReport ? '' : 'Write a QA/test report under .gemini/forgekit/reports/.',
+        ),
+      );
+    }
   }
 
   if (require_review) {
@@ -664,6 +725,17 @@ async function checkWorkflow({
         hasReview ? '' : 'Run /team:review or include code-reviewer before handoff.',
       ),
     );
+    if (require_reports && standardWork) {
+      gates.push(
+        gate(
+          'reports.review',
+          'Code review report written',
+          hasReviewReport ? 'pass' : 'block',
+          hasReviewReport ? 'Code review report evidence found.' : 'No code review report found in .gemini/forgekit/reports/.',
+          hasReviewReport ? '' : 'Write a code review report under .gemini/forgekit/reports/.',
+        ),
+      );
+    }
   }
 
   if (require_security_when_sensitive && sensitive) {
@@ -676,6 +748,17 @@ async function checkWorkflow({
         hasSecurity ? '' : 'Run /team:security-audit or use security-engineer.',
       ),
     );
+    if (require_reports && standardWork) {
+      gates.push(
+        gate(
+          'reports.security',
+          'Security report written',
+          hasSecurityReport ? 'pass' : 'block',
+          hasSecurityReport ? 'Security report evidence found.' : 'No security report found in .gemini/forgekit/reports/.',
+          hasSecurityReport ? '' : 'Write a security report under .gemini/forgekit/reports/.',
+        ),
+      );
+    }
   }
 
   if (require_memory_index) {
@@ -1030,6 +1113,8 @@ server.registerTool(
         require_review: z.boolean().default(true),
         require_memory_index: z.boolean().default(true),
         require_security_when_sensitive: z.boolean().default(true),
+        require_plan: z.boolean().default(true),
+        require_reports: z.boolean().default(true),
         release_mode: z.boolean().default(false),
         write_report: z.boolean().default(false),
       })
@@ -1041,6 +1126,8 @@ server.registerTool(
     require_review,
     require_memory_index,
     require_security_when_sensitive,
+    require_plan,
+    require_reports,
     release_mode,
     write_report,
   }) => {
@@ -1050,6 +1137,8 @@ server.registerTool(
       require_review,
       require_memory_index,
       require_security_when_sensitive,
+      require_plan,
+      require_reports,
       release_mode,
     });
     if (write_report) result.report_file = await writeWorkflowReport('workflow-checkpoint', result);

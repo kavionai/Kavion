@@ -26,9 +26,9 @@ Required behavior:
    If missing, initialize it using the ForgeKit project-memory template before continuing, when writes are permitted.
 5. Read project memory before planning implementation.
 6. Select only the agents needed.
-7. For Standard work, create or update session state under `.gemini/forgekit/` when writes are permitted. If not, continue and report the deferred session update.
+7. For Standard work, create or update session state under `.gemini/forgekit/` when writes are permitted. Also write a plan to `.gemini/forgekit/plans/<task-slug>-plan.md` before implementation. If not, continue and report the deferred session/plan update.
 8. Delegate implementation to the correct specialist.
-9. Run verification and review before final response.
+9. Run verification and review before final response. For Standard work, write QA/test, security when applicable, and code-review evidence reports under `.gemini/forgekit/reports/`.
 10. Before final response, update:
    - `.gemini/context/current-work.md`
    - `.gemini/context/decisions.md` only for real decisions
@@ -40,6 +40,7 @@ Required behavior:
 
 Do not call every agent by default.
 Do not edit code before understanding likely impact.
-Do not finish Standard work without a Memory section in the final response, including memory index refresh status and checkpoint decision.
+Do not finish Standard work without plan/report files, unless writes are blocked and the deferred files are listed.
+Do not finish Standard work without a Memory section in the final response, including plan/report status, memory index refresh status, and checkpoint decision.
 If a normal phase is skipped, briefly explain why.
 """

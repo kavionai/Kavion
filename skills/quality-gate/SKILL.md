@@ -20,6 +20,8 @@ Check:
 - GitHub branch, issue, and PR state are clear.
 - Workflow checkpoint passes.
 - Release readiness is not claimed when QA is deferred.
+- Standard work has a persisted plan under `.gemini/forgekit/plans/`.
+- Standard work has QA/test and code-review reports under `.gemini/forgekit/reports/`.
 
 ## Decisions
 
@@ -31,7 +33,8 @@ Return one of:
 
 Return `block` when QA is deferred, code review is missing, sensitive work lacks
 security review, unresolved blockers remain, or memory/index state is stale and
-needed for handoff.
+needed for handoff. Also return `block` when Standard work is missing persisted
+plan or report files.
 
 ## Output
 

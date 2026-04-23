@@ -39,6 +39,10 @@ Required flow:
    - For docs/config/project-memory/workflow bugs, treat a concrete file inconsistency or missing required file/command/template as sufficient reproduction.
    - Use `qa-test-engineer` when extra verification is needed.
 
+3a. Planning:
+   - For Standard, multi-file, security, database, GitHub, or workflow issues, write a concise plan to `.gemini/forgekit/plans/<issue-slug>-plan.md` before implementation.
+   - Express fixes may keep the plan inline in the active session.
+
 4. Implementation Agent: Choose exactly one primary specialist:
    - frontend-engineer for UI/client bugs
    - backend-engineer for API/service/auth bugs
@@ -56,6 +60,11 @@ Required flow:
 
 7. Review: Use `code-reviewer` before final response.
 
+7a. Evidence reports:
+   - For Standard work, write QA/test and code-review reports under `.gemini/forgekit/reports/`.
+   - If security-engineer is used, write a security report under `.gemini/forgekit/reports/`.
+   - If writes are blocked, list deferred report files in the final response.
+
 8. Memory closeout:
    - Update project memory and active session state when writes are permitted.
    - Refresh `.gemini/forgekit/memory/` using MCP tool `forgekit_index_memory` when available.
@@ -67,5 +76,5 @@ Do not skip directly to code editing unless the issue is trivial.
 Do not spend many turns on broad exploration before proposing a focused fix.
 If the issue is about project memory or workflow completeness, prefer `devops-docs-engineer`.
 If a step is skipped, briefly explain why.
-Final response must include a Memory section with update, index refresh status, and checkpoint decision.
+Final response must include a Memory section with plan/report status, memory update, index refresh status, and checkpoint decision.
 """

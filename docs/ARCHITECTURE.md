@@ -80,6 +80,11 @@ Markdown remains the source of truth; vector data is always rebuildable.
 - hot memory files
 - ForgeKit session, plan, and report files
 
+For Standard work, plans and reports are not optional:
+
+- plans are stored under `.gemini/forgekit/plans/`
+- QA, review, and security evidence is stored under `.gemini/forgekit/reports/`
+
 ### Policies
 
 `policies/` contains workflow guardrails for risky actions.
@@ -113,3 +118,4 @@ bounded inspection and stopping conditions.
 ForgeKit treats implementation-complete and release-ready as different states.
 Deferred QA, missing review, unresolved blockers, or stale memory blocks handoff
 and archive-as-complete.
+Missing Standard-work plan/report files also block release readiness.
