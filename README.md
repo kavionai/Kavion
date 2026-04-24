@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/kanion.png" alt="Kavion" width="100%">
+  <img src="assets/kavion-2.png" alt="Kavion" width="100%">
 </p>
 
 <p align="center">
