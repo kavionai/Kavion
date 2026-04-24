@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/kavion-banner.svg" alt="Kavion workflow system banner" width="100%">
+  <img src="assets/kanion.png" alt="Kavion" width="100%">
 </p>
 
 <p align="center">
