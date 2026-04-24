@@ -1,15 +1,15 @@
 {
   "name": "kavion",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Structured AI software team workflows with local project memory, real workflow gates, and durable session state.",
   "contextFileName": "KAVION.md",
   "mcpServers": {
     "kavion-worker": {
       "command": "node",
       "args": [
-        "${extensionPath}/mcp-server/index.js"
+        "${extensionPath}${/}mcp-server${/}launch.js"
       ],
-      "cwd": "${extensionPath}/mcp-server"
+      "cwd": "${extensionPath}"
     }
   }
 }

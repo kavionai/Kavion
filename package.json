@@ -1,11 +1,11 @@
 {
-  "name": "kavion-mcp-server",
+  "name": "kavion",
   "version": "0.2.1",
-  "type": "module",
   "private": true,
+  "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "check": "node --check index.js"
+    "check:mcp": "node --check mcp-server/index.js",
+    "start:mcp": "node mcp-server/launch.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kalpeshchouhan/Kavion"><img alt="Version" src="https://img.shields.io/badge/version-0.2.0-202124"></a>
+  <a href="https://github.com/kalpeshchouhan/Kavion"><img alt="Version" src="https://img.shields.io/badge/version-0.2.1-202124"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-00A887"></a>
   <img alt="AI Coding CLI" src="https://img.shields.io/badge/AI%20coding%20CLI-extension-4C7BE8">
   <img alt="MCP" src="https://img.shields.io/badge/MCP-supported-D9A000">
@@ -125,7 +125,7 @@ The worker + MCP server now provide:
 - `BeforeAgent`
 - `AfterTool`
 
-Enable the worker after running `npm install` in `mcp-server/`.
+The extension now expects dependencies at the extension root. For local development, run `npm install` in the repo root before linking the extension.
 
 ## Docs
 

@@ -10,12 +10,17 @@ import { spawn } from 'node:child_process';
 import MiniSearch from 'minisearch';
 import YAML from 'yaml';
 
-const serverVersion = '0.2.0';
+const serverVersion = '0.2.1';
 
 const modulePath = fileURLToPath(import.meta.url);
 const serverDir = path.dirname(modulePath);
 const extensionPath = path.dirname(serverDir);
-const workspacePath = process.env.KAVION_WORKSPACE_PATH || process.env.FORGEKIT_WORKSPACE_PATH || process.cwd();
+const workspacePath =
+  process.env.KAVION_WORKSPACE_PATH ||
+  process.env.GEMINI_PROJECT_DIR ||
+  process.env.CLAUDE_PROJECT_DIR ||
+  process.env.FORGEKIT_WORKSPACE_PATH ||
+  process.cwd();
 
 const kavionRoot = path.join(workspacePath, '.kavion');
 const geminiRoot = path.join(workspacePath, '.gemini');

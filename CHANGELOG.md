@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 - 2026-04-25
+
+- Fixed extension MCP packaging so Gemini can launch the installed worker from a root-level dependency install.
+- Switched the manifest to the documented `${extensionPath}${/}...` path format and a dedicated launcher entrypoint.
+- Suppressed the `node:sqlite` experimental warning for worker startup and added Gemini project-dir env fallback.
+
 ## 0.2.0 - 2026-04-25
 
 - Reworked Kavion state management around `.kavion/state.db` as machine truth.

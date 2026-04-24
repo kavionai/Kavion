@@ -11,6 +11,8 @@
 
 # Gemini / local runtime state
 .gemini/
+.kavion/
+mcp-server/.kavion/
 .kavion/state.db
 .kavion/state.db-*
 .kavion/index/
