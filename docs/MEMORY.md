@@ -1,13 +1,13 @@
-# ForgeKit Memory
+# Kavion Memory
 
-ForgeKit 2 uses a smaller, stricter memory model.
+Kavion uses a smaller, stricter memory model.
 
-![ForgeKit 2 Memory Flow](../assets/forgekit-memory-flow.svg)
+![Kavion Memory Flow](../assets/kavion-memory-flow.svg)
 
 ## Layout
 
 ```text
-.gemini/forgekit/
+.gemini/kavion/
   PROJECT.md
   DECISIONS.md
   DECISIONS-archive.md
@@ -72,39 +72,39 @@ ForgeKit 2 uses a smaller, stricter memory model.
 
 ## Search
 
-ForgeKit 2 indexes memory into:
+Kavion indexes memory into:
 
 ```text
-.gemini/forgekit/index/chunks.jsonl
-.gemini/forgekit/index/bm25.json
+.gemini/kavion/index/chunks.jsonl
+.gemini/kavion/index/bm25.json
 ```
 
 Use:
 
 ```text
-/team:memory-index
-/team:memory-search "query"
+/kavion:memory-index
+/kavion:memory-search "query"
 ```
 
 or:
 
 ```text
-/forge:search "query"
+/kavion:search "query"
 ```
 
 ## Migration
 
-Older ForgeKit projects may still have:
+Older Kavion projects may still have:
 
 ```text
 .gemini/context/
 .gemini/archive/
-.gemini/forgekit/sessions/
-.gemini/forgekit/memory/
+.gemini/kavion/sessions/
+.gemini/kavion/memory/
 ```
 
-ForgeKit 2 can migrate those into the new structure with:
+Kavion can migrate those into the new structure with:
 
 ```text
-/forge:migrate
+/kavion:migrate
 ```

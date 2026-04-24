@@ -1,0 +1,17 @@
+description = "Audit the current Kavion workflow without doing implementation work."
+
+prompt = """
+Audit the current Kavion workflow.
+
+Use MCP tool `kavion_status` when available, and use `kavion_gate` if a gate result is needed.
+
+Check:
+- session state
+- current work
+- plan presence
+- report freshness
+- index state
+- expired notes or oversized memory files
+
+Return the gaps and the next corrective command only.
+"""

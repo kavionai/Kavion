@@ -1,20 +1,20 @@
 # Workflow Enforcement
 
-ForgeKit 2 uses real gates instead of lightweight checkpoint-only logic.
+Kavion uses real gates instead of lightweight checkpoint-only logic.
 
 ## Gate Surface
 
 Use:
 
 ```text
-/forge:gate plan
-/forge:gate test
-/forge:gate review
-/forge:gate security
-/forge:gate ship
+/kavion:gate plan
+/kavion:gate test
+/kavion:gate review
+/kavion:gate security
+/kavion:gate ship
 ```
 
-The older `/team:checkpoint` and `/team:release-readiness` commands remain as compatibility wrappers around the ship gate.
+The older `/kavion:checkpoint` and `/kavion:release-readiness` commands remain as compatibility wrappers around the ship gate.
 
 ## What Gates Check
 
@@ -43,7 +43,7 @@ The older `/team:checkpoint` and `/team:release-readiness` commands remain as co
 
 ## Principle
 
-ForgeKit should not trust:
+Kavion should not trust:
 
 - “tests passed” written by the model
 - “review complete” written by the model

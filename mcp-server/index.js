@@ -8,30 +8,31 @@ import { spawn } from 'node:child_process';
 import MiniSearch from 'minisearch';
 import YAML from 'yaml';
 
-const workspacePath = process.env.FORGEKIT_WORKSPACE_PATH || process.cwd();
+const workspacePath = process.env.KAVION_WORKSPACE_PATH || process.env.FORGEKIT_WORKSPACE_PATH || process.cwd();
 const geminiRoot = path.join(workspacePath, '.gemini');
-const forgeRoot = path.join(geminiRoot, 'forgekit');
-const indexRoot = path.join(forgeRoot, 'index');
-const notesRoot = path.join(forgeRoot, 'notes');
-const plansRoot = path.join(forgeRoot, 'plans');
-const reportsRoot = path.join(forgeRoot, 'reports');
+const kavionRoot = path.join(geminiRoot, 'kavion');
+const indexRoot = path.join(kavionRoot, 'index');
+const notesRoot = path.join(kavionRoot, 'notes');
+const plansRoot = path.join(kavionRoot, 'plans');
+const reportsRoot = path.join(kavionRoot, 'reports');
 const legacyContextRoot = path.join(geminiRoot, 'context');
 const legacyArchiveRoot = path.join(geminiRoot, 'archive');
-const legacySessionsRoot = path.join(forgeRoot, 'sessions');
-const legacyMemoryRoot = path.join(forgeRoot, 'memory');
+const legacyForgeRoot = path.join(geminiRoot, 'forgekit');
+const legacySessionsRoot = path.join(legacyForgeRoot, 'sessions');
+const legacyMemoryRoot = path.join(legacyForgeRoot, 'memory');
 
-const projectFile = path.join(forgeRoot, 'PROJECT.md');
-const decisionsFile = path.join(forgeRoot, 'DECISIONS.md');
-const decisionsArchiveFile = path.join(forgeRoot, 'DECISIONS-archive.md');
-const currentFile = path.join(forgeRoot, 'CURRENT.md');
-const sessionFile = path.join(forgeRoot, 'session.json');
-const historyFile = path.join(forgeRoot, 'history.jsonl');
-const gatesFile = path.join(forgeRoot, 'gates.yaml');
+const projectFile = path.join(kavionRoot, 'PROJECT.md');
+const decisionsFile = path.join(kavionRoot, 'DECISIONS.md');
+const decisionsArchiveFile = path.join(kavionRoot, 'DECISIONS-archive.md');
+const currentFile = path.join(kavionRoot, 'CURRENT.md');
+const sessionFile = path.join(kavionRoot, 'session.json');
+const historyFile = path.join(kavionRoot, 'history.jsonl');
+const gatesFile = path.join(kavionRoot, 'gates.yaml');
 const chunksFile = path.join(indexRoot, 'chunks.jsonl');
 const miniSearchFile = path.join(indexRoot, 'bm25.json');
 const dirtyFile = path.join(indexRoot, '.dirty');
 
-const serverVersion = '0.5.0';
+const serverVersion = '0.1.0';
 const maxProjectLines = 300;
 const maxCurrentLines = 50;
 const maxDecisionEntries = 200;
@@ -136,7 +137,7 @@ async function exists(filePath) {
 }
 
 async function ensureDirs() {
-  await fs.mkdir(forgeRoot, { recursive: true });
+  await fs.mkdir(kavionRoot, { recursive: true });
   await fs.mkdir(indexRoot, { recursive: true });
   await fs.mkdir(notesRoot, { recursive: true });
   await fs.mkdir(plansRoot, { recursive: true });
@@ -359,13 +360,13 @@ function markdownChunks(content) {
 
 function inferType(filePath) {
   const relative = rootRel(filePath);
-  if (relative === 'forgekit/PROJECT.md') return 'project';
-  if (relative === 'forgekit/DECISIONS.md' || relative === 'forgekit/DECISIONS-archive.md') return 'decisions';
-  if (relative === 'forgekit/CURRENT.md') return 'current';
-  if (relative === 'forgekit/session.json' || relative === 'forgekit/history.jsonl') return 'session';
-  if (relative.startsWith('forgekit/plans/')) return 'plan';
-  if (relative.startsWith('forgekit/reports/')) return 'report';
-  if (relative.startsWith('forgekit/notes/')) return 'note';
+  if (relative === 'kavion/PROJECT.md') return 'project';
+  if (relative === 'kavion/DECISIONS.md' || relative === 'kavion/DECISIONS-archive.md') return 'decisions';
+  if (relative === 'kavion/CURRENT.md') return 'current';
+  if (relative === 'kavion/session.json' || relative === 'kavion/history.jsonl') return 'session';
+  if (relative.startsWith('kavion/plans/')) return 'plan';
+  if (relative.startsWith('kavion/reports/')) return 'report';
+  if (relative.startsWith('kavion/notes/')) return 'note';
   if (relative.startsWith('context/')) return 'legacy-context';
   if (relative.startsWith('archive/')) return 'legacy-archive';
   if (relative.includes('/sessions/')) return 'legacy-session';
@@ -374,8 +375,8 @@ function inferType(filePath) {
 
 function shouldIndex(filePath) {
   const relative = rootRel(filePath);
-  if (relative.startsWith('forgekit/index/')) return false;
-  if (relative.startsWith('forgekit/node_modules/')) return false;
+  if (relative.startsWith('kavion/index/')) return false;
+  if (relative.startsWith('kavion/node_modules/')) return false;
   if (path.basename(filePath).startsWith('.env')) return false;
   return filePath.endsWith('.md') || filePath.endsWith('.json') || filePath.endsWith('.jsonl');
 }
@@ -1045,7 +1046,7 @@ async function gateTest(session, config, { write_report = false, use_cache = tru
       status: 'risk',
       result: 'risk',
       evidence: 'No test command configured in gates.yaml.',
-      next_step: 'Set test.command in .gemini/forgekit/gates.yaml.',
+      next_step: 'Set test.command in .gemini/kavion/gates.yaml.',
     };
     if (write_report) result.report_file = await writeGateReport(slug, 'test', result);
     return result;
@@ -1148,7 +1149,7 @@ async function gateSecurity(session, config, { write_report = false } = {}) {
       status: 'risk',
       result: 'risk',
       evidence: 'Security gate triggered, but no security command is configured.',
-      next_step: 'Set security.command in .gemini/forgekit/gates.yaml.',
+      next_step: 'Set security.command in .gemini/kavion/gates.yaml.',
     };
     if (write_report) result.report_file = await writeGateReport(slug, 'security', result);
     return result;
@@ -1318,7 +1319,7 @@ async function getStatus() {
         index_dirty: dirty,
       },
     }),
-    next_step: dirty ? '/forge gate status or /team:memory-index' : session.next_step || '',
+    next_step: dirty ? '/kavion:status or /kavion:memory-index' : session.next_step || '',
   };
 }
 
@@ -1328,7 +1329,7 @@ async function initializeWorkspace() {
   const built = await buildIndex();
   return {
     ok: true,
-    root: rel(forgeRoot),
+    root: rel(kavionRoot),
     files: [
       rel(projectFile),
       rel(decisionsFile),
@@ -1390,23 +1391,23 @@ function text(data) {
 }
 
 const server = new McpServer({
-  name: 'forgekit-workflow',
+  name: 'kavion-workflow',
   version: serverVersion,
 });
 
 server.registerTool(
-  'forgekit_initialize_workspace',
+  'kavion_initialize_workspace',
   {
-    description: 'Create the ForgeKit 2 workspace memory structure and build the local BM25 index.',
+    description: 'Create the Kavion workspace memory structure and build the local BM25 index.',
     inputSchema: z.object({}).shape,
   },
   async () => text(await initializeWorkspace()),
 );
 
 server.registerTool(
-  'forgekit_update_session',
+  'kavion_update_session',
   {
-    description: 'Create or update the live ForgeKit session.json file.',
+    description: 'Create or update the live Kavion session.json file.',
     inputSchema: z
       .object({
         task: z.string().optional(),
@@ -1427,7 +1428,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  'forgekit_update_current',
+  'kavion_update_current',
   {
     description: 'Update the live CURRENT.md file for the active task.',
     inputSchema: z
@@ -1444,9 +1445,9 @@ server.registerTool(
 );
 
 server.registerTool(
-  'forgekit_write_plan',
+  'kavion_write_plan',
   {
-    description: 'Write or replace a structured plan file under .gemini/forgekit/plans/.',
+    description: 'Write or replace a structured plan file under .gemini/kavion/plans/.',
     inputSchema: z
       .object({
         slug: z.string().optional(),
@@ -1463,9 +1464,9 @@ server.registerTool(
 );
 
 server.registerTool(
-  'forgekit_write_report',
+  'kavion_write_report',
   {
-    description: 'Write or replace a structured report file under .gemini/forgekit/reports/.',
+    description: 'Write or replace a structured report file under .gemini/kavion/reports/.',
     inputSchema: z
       .object({
         slug: z.string().optional(),
@@ -1485,7 +1486,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  'forgekit_archive_session',
+  'kavion_archive_session',
   {
     description: 'Archive the live session into history.jsonl and reset session.json.',
     inputSchema: z.object({ reason: z.string().default('completed') }).shape,
@@ -1494,18 +1495,18 @@ server.registerTool(
 );
 
 server.registerTool(
-  'forgekit_build_index',
+  'kavion_build_index',
   {
-    description: 'Build or refresh the ForgeKit 2 chunks.jsonl and bm25.json index files.',
+    description: 'Build or refresh the Kavion chunks.jsonl and bm25.json index files.',
     inputSchema: z.object({}).shape,
   },
   async () => text(await buildIndex()),
 );
 
 server.registerTool(
-  'forgekit_search',
+  'kavion_search',
   {
-    description: 'Search ForgeKit project memory using the local BM25 index.',
+    description: 'Search Kavion project memory using the local BM25 index.',
     inputSchema: z
       .object({
         query: z.string(),
@@ -1517,7 +1518,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  'forgekit_read_chunk',
+  'kavion_read_chunk',
   {
     description: 'Read a specific indexed memory chunk by chunk id.',
     inputSchema: z.object({ id: z.string() }).shape,
@@ -1526,18 +1527,18 @@ server.registerTool(
 );
 
 server.registerTool(
-  'forgekit_status',
+  'kavion_status',
   {
-    description: 'Return the current ForgeKit 2 session, git, and memory status.',
+    description: 'Return the current Kavion session, git, and memory status.',
     inputSchema: z.object({}).shape,
   },
   async () => text(await getStatus()),
 );
 
 server.registerTool(
-  'forgekit_gate',
+  'kavion_gate',
   {
-    description: 'Run a ForgeKit 2 gate using real command output and filesystem state.',
+    description: 'Run a Kavion gate using real command output and filesystem state.',
     inputSchema: z
       .object({
         name: z.enum(['status', 'plan', 'test', 'review', 'security', 'ship']),
@@ -1549,9 +1550,9 @@ server.registerTool(
 );
 
 server.registerTool(
-  'forgekit_write_note',
+  'kavion_write_note',
   {
-    description: 'Write a structured research/debug note under .gemini/forgekit/notes with TTL enforcement.',
+    description: 'Write a structured research/debug note under .gemini/kavion/notes with TTL enforcement.',
     inputSchema: z
       .object({
         slug: z.string().optional(),
@@ -1564,166 +1565,21 @@ server.registerTool(
 );
 
 server.registerTool(
-  'forgekit_memory_gc',
+  'kavion_memory_gc',
   {
-    description: 'Prune expired notes and report oversized ForgeKit memory files.',
+    description: 'Prune expired notes and report oversized Kavion memory files.',
     inputSchema: z.object({ delete_expired: z.boolean().default(true) }).shape,
   },
   async ({ delete_expired }) => text(await memoryGc({ delete_expired })),
 );
 
 server.registerTool(
-  'forgekit_migrate',
+  'kavion_migrate',
   {
-    description: 'Preview or apply migration from the old ForgeKit memory layout to ForgeKit 2.',
+    description: 'Preview or apply migration from the legacy ForgeKit memory layout to Kavion.',
     inputSchema: z.object({ apply: z.boolean().default(false) }).shape,
   },
   async ({ apply }) => text(await migrate({ apply })),
-);
-
-// Compatibility aliases for the existing ForgeKit 0.x command surface.
-server.registerTool(
-  'forgekit_create_session',
-  {
-    description: 'Compatibility alias for creating or updating ForgeKit session state.',
-    inputSchema: z
-      .object({
-        session_id: z.string().optional(),
-        task: z.string(),
-        workflow: z.enum(['express', 'standard']).default('standard'),
-      })
-      .shape,
-  },
-  async ({ session_id, task, workflow }) =>
-    text(
-      await writeSession({
-        task,
-        slug: session_id || slugify(task),
-        workflow,
-        phase: 'intake',
-        status: 'active',
-        active_agent: 'main-agent',
-      }),
-    ),
-);
-
-server.registerTool(
-  'forgekit_get_status',
-  {
-    description: 'Compatibility alias for ForgeKit status.',
-    inputSchema: z.object({}).shape,
-  },
-  async () => text(await getStatus()),
-);
-
-server.registerTool(
-  'forgekit_index_memory',
-  {
-    description: 'Compatibility alias for building the ForgeKit BM25 memory index.',
-    inputSchema: z.object({}).shape,
-  },
-  async () => text(await buildIndex()),
-);
-
-server.registerTool(
-  'forgekit_search_memory',
-  {
-    description: 'Compatibility alias for BM25 memory search.',
-    inputSchema: z
-      .object({
-        query: z.string(),
-        top_k: z.number().int().min(1).max(10).default(5),
-        max_total_chars: z.number().int().optional(),
-      })
-      .shape,
-  },
-  async ({ query, top_k }) => text(await searchIndex({ query, top_k })),
-);
-
-server.registerTool(
-  'forgekit_audit_memory',
-  {
-    description: 'Compatibility alias for ForgeKit memory hygiene status.',
-    inputSchema: z.object({}).shape,
-  },
-  async () => text(await getStatus()),
-);
-
-server.registerTool(
-  'forgekit_compact_memory',
-  {
-    description: 'Compatibility alias for ForgeKit memory garbage collection.',
-    inputSchema: z.object({ dry_run: z.boolean().default(true) }).shape,
-  },
-  async ({ dry_run }) => text(await memoryGc({ delete_expired: !dry_run })),
-);
-
-server.registerTool(
-  'forgekit_dashboard',
-  {
-    description: 'Compatibility alias for ForgeKit status/dashboard.',
-    inputSchema: z.object({}).shape,
-  },
-  async () => text(await getStatus()),
-);
-
-server.registerTool(
-  'forgekit_check_workflow',
-  {
-    description: 'Compatibility alias for ship gate evaluation.',
-    inputSchema: z.object({ write_report: z.boolean().default(false) }).shape,
-  },
-  async ({ write_report }) => {
-    const result = await runGate('ship', { write_reports: write_report });
-    return text({
-      decision: result.result === 'risk' ? 'pass-with-risk' : result.result,
-      gates: result.component_results || {},
-      evidence: result.evidence,
-      report_file: result.report_file || null,
-    });
-  },
-);
-
-server.registerTool(
-  'forgekit_record_checkpoint',
-  {
-    description: 'Compatibility alias that writes a manual checkpoint report into reports/.',
-    inputSchema: z
-      .object({
-        checkpoint: z.string(),
-        status: z.enum(['pass', 'pass-with-risk', 'block']),
-        evidence: z.string().default(''),
-        next_step: z.string().default(''),
-      })
-      .shape,
-  },
-  async ({ checkpoint, status, evidence, next_step }) => {
-    const session = await getSession();
-    const slug = session.slug || slugify(session.task || checkpoint);
-    const report = await writeGateReport(slug, `checkpoint-${slugify(checkpoint)}`, {
-      result: status,
-      evidence: [checkpoint, evidence, next_step].filter(Boolean).join(' | '),
-    });
-    return text({ ok: true, report_file: report, decision: status });
-  },
-);
-
-server.registerTool(
-  'forgekit_handoff_report',
-  {
-    description: 'Compatibility alias for the ship gate.',
-    inputSchema: z.object({ write_report: z.boolean().default(false) }).shape,
-  },
-  async ({ write_report }) => text(await runGate('ship', { write_reports: write_report })),
-);
-
-server.registerTool(
-  'forgekit_release_readiness',
-  {
-    description: 'Compatibility alias for the ship gate.',
-    inputSchema: z.object({ write_report: z.boolean().default(false) }).shape,
-  },
-  async ({ write_report }) => text(await runGate('ship', { write_reports: write_report })),
 );
 
 const transport = new StdioServerTransport();

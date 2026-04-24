@@ -1,40 +1,38 @@
-# ForgeKit MCP
+# Kavion MCP
 
-ForgeKit 2 uses an MCP server for workspace memory, search, migration, and real gates.
+Kavion uses an MCP server for workspace memory, search, migration, and real gates.
 
 ## Tools
 
-- `forgekit_initialize_workspace`
-- `forgekit_update_session`
-- `forgekit_update_current`
-- `forgekit_write_plan`
-- `forgekit_write_report`
-- `forgekit_archive_session`
-- `forgekit_build_index`
-- `forgekit_search`
-- `forgekit_read_chunk`
-- `forgekit_status`
-- `forgekit_gate`
-- `forgekit_write_note`
-- `forgekit_memory_gc`
-- `forgekit_migrate`
-
-Compatibility aliases still exist for the older `forgekit_index_memory`, `forgekit_search_memory`, `forgekit_dashboard`, `forgekit_check_workflow`, and `forgekit_release_readiness` names.
+- `kavion_initialize_workspace`
+- `kavion_update_session`
+- `kavion_update_current`
+- `kavion_write_plan`
+- `kavion_write_report`
+- `kavion_archive_session`
+- `kavion_build_index`
+- `kavion_search`
+- `kavion_read_chunk`
+- `kavion_status`
+- `kavion_gate`
+- `kavion_write_note`
+- `kavion_memory_gc`
+- `kavion_migrate`
 
 ## Index
 
 The MCP server builds:
 
 ```text
-.gemini/forgekit/index/chunks.jsonl
-.gemini/forgekit/index/bm25.json
+.gemini/kavion/index/chunks.jsonl
+.gemini/kavion/index/bm25.json
 ```
 
 This replaces the older LanceDB/vector setup.
 
 ## Gates
 
-`forgekit_gate` supports:
+`kavion_gate` supports:
 
 - `status`
 - `plan`

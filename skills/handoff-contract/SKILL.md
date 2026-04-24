@@ -1,6 +1,6 @@
 ---
 name: handoff-contract
-description: Use this skill whenever a ForgeKit specialist agent reports work back to the main coordinator, so all handoffs include status, files, verification, risks, and downstream context.
+description: Use this skill whenever a Kavion specialist agent reports work back to the main coordinator, so all handoffs include status, files, verification, risks, and downstream context.
 ---
 # Handoff contract
 

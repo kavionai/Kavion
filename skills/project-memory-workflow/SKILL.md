@@ -1,6 +1,6 @@
 ---
 name: project-memory-workflow
-description: Use this skill to initialize, update, prune, or search ForgeKit 2 project memory files such as GEMINI.md, PROJECT.md, DECISIONS.md, CURRENT.md, notes, plans, reports, and the local BM25 index.
+description: Use this skill to initialize, update, prune, or search Kavion project memory files such as GEMINI.md, PROJECT.md, DECISIONS.md, CURRENT.md, notes, plans, reports, and the local BM25 index.
 ---
 # Project memory workflow
 
@@ -8,13 +8,13 @@ Use this skill to maintain long-term project memory without wasting context.
 
 ## Memory tiers
 
-- Hot memory: `GEMINI.md`, `.gemini/forgekit/CURRENT.md`, and `.gemini/forgekit/session.json`
-- Repo memory: `.gemini/forgekit/PROJECT.md`
-- Decision log: `.gemini/forgekit/DECISIONS.md`
-- Warm notes: `.gemini/forgekit/notes/`
-- Plans: `.gemini/forgekit/plans/`
-- Reports: `.gemini/forgekit/reports/`
-- Local index: `.gemini/forgekit/index/`
+- Hot memory: `GEMINI.md`, `.gemini/kavion/CURRENT.md`, and `.gemini/kavion/session.json`
+- Repo memory: `.gemini/kavion/PROJECT.md`
+- Decision log: `.gemini/kavion/DECISIONS.md`
+- Warm notes: `.gemini/kavion/notes/`
+- Plans: `.gemini/kavion/plans/`
+- Reports: `.gemini/kavion/reports/`
+- Local index: `.gemini/kavion/index/`
 
 ## Workflow
 
@@ -39,5 +39,5 @@ Use this skill to maintain long-term project memory without wasting context.
 ## Local index rules
 
 - Files are the source of truth.
-- `.gemini/forgekit/index/` is a rebuildable BM25 cache.
+- `.gemini/kavion/index/` is a rebuildable BM25 cache.
 - Search results are hints; read the source file before relying on a recalled chunk.

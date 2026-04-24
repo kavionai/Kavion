@@ -1,6 +1,6 @@
-# ForgeKit MCP Server
+# Kavion MCP Server
 
-This is the optional MCP runtime for ForgeKit 2.
+This is the optional MCP runtime for Kavion.
 
 It powers:
 
@@ -28,43 +28,41 @@ Add this to `gemini-extension.json`:
 ```json
 {
   "mcpServers": {
-    "forgekit": {
+    "kavion": {
       "command": "node",
       "args": ["${extensionPath}${/}mcp-server${/}index.js"],
       "cwd": "${extensionPath}${/}mcp-server",
       "env": {
-        "FORGEKIT_WORKSPACE_PATH": "${workspacePath}"
+        "KAVION_WORKSPACE_PATH": "${workspacePath}"
       }
     }
   }
 }
 ```
 
-## ForgeKit 2 Tools
+## Kavion Tools
 
-- `forgekit_initialize_workspace`
-- `forgekit_update_session`
-- `forgekit_update_current`
-- `forgekit_write_plan`
-- `forgekit_write_report`
-- `forgekit_archive_session`
-- `forgekit_build_index`
-- `forgekit_search`
-- `forgekit_read_chunk`
-- `forgekit_status`
-- `forgekit_gate`
-- `forgekit_write_note`
-- `forgekit_memory_gc`
-- `forgekit_migrate`
-
-Compatibility aliases remain for the older tool names.
+- `kavion_initialize_workspace`
+- `kavion_update_session`
+- `kavion_update_current`
+- `kavion_write_plan`
+- `kavion_write_report`
+- `kavion_archive_session`
+- `kavion_build_index`
+- `kavion_search`
+- `kavion_read_chunk`
+- `kavion_status`
+- `kavion_gate`
+- `kavion_write_note`
+- `kavion_memory_gc`
+- `kavion_migrate`
 
 ## Index
 
 The local search cache lives under:
 
 ```text
-.gemini/forgekit/index/
+.gemini/kavion/index/
   chunks.jsonl
   bm25.json
   .dirty

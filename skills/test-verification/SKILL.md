@@ -15,8 +15,8 @@ confidence.
 4. Choose the smallest meaningful test level.
 5. Add regression tests when the bug or feature changes behavior.
 6. Run focused tests first, then broader checks if risk justifies it.
-7. For Standard work, write a QA/test report under `.gemini/forgekit/reports/`.
-8. Prefer MCP tool `forgekit_write_report` when available.
+7. For Standard work, write a QA/test report under `.gemini/kavion/reports/`.
+8. Prefer MCP tool `kavion_write_report` when available.
 
 ## Test levels
 

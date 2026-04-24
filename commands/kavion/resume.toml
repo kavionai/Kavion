@@ -1,0 +1,13 @@
+description = "Resume the current Kavion task from saved project memory."
+
+prompt = """
+Resume the current Kavion task.
+
+Required:
+1. Read `.gemini/kavion/session.json`.
+2. Read `.gemini/kavion/CURRENT.md`.
+3. Read `.gemini/kavion/PROJECT.md` or `.gemini/kavion/DECISIONS.md` only if needed.
+4. Continue from the saved next step.
+
+Do not restart planning from scratch if a valid session and plan already exist.
+"""

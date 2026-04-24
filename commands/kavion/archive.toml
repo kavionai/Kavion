@@ -1,0 +1,17 @@
+description = "Archive the current Kavion task session."
+
+prompt = """
+Archive the current Kavion task only if it is genuinely complete.
+
+Required flow:
+1. Inspect `.gemini/kavion/session.json`.
+2. Run `/kavion:release-readiness` logic or MCP tool `kavion_release_readiness` when available.
+3. If release readiness is blocked, do not archive.
+4. If ready, append the current session to `.gemini/kavion/history.jsonl`.
+5. Reset `.gemini/kavion/session.json` to idle state.
+6. Update `.gemini/kavion/CURRENT.md` if the active task is complete.
+7. Refresh the local index under `.gemini/kavion/index/`.
+
+Do not delete useful history.
+Do not claim release-ready if ship gate is blocked.
+"""

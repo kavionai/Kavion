@@ -1,0 +1,32 @@
+description = "Initialize Kavion project memory files."
+
+prompt = """
+Initialize Kavion memory for this project.
+
+Consult the `project-memory-workflow` skill file as guidance.
+
+Create or update these files if missing:
+- GEMINI.md
+- .gemini/kavion/PROJECT.md
+- .gemini/kavion/DECISIONS.md
+- .gemini/kavion/DECISIONS-archive.md
+- .gemini/kavion/CURRENT.md
+- .gemini/kavion/session.json
+- .gemini/kavion/history.jsonl
+- .gemini/kavion/gates.yaml
+- .gemini/kavion/plans/
+- .gemini/kavion/reports/
+- .gemini/kavion/notes/
+- .gemini/kavion/index/
+
+Rules:
+1. Do not overwrite existing useful content.
+2. Inspect the project enough to fill accurate starter notes.
+3. Keep PROJECT.md concise and repo-level.
+4. Root GEMINI.md should auto-load only CURRENT.md.
+5. Do not include secrets.
+6. Use Kavion templates from the extension:
+   - Memory files: kavion/templates/project-memory/kavion/
+   - Root GEMINI: kavion/templates/project-memory/GEMINI.md
+7. After initialization, build the local BM25 index using MCP tool `kavion_build_index` when available. If MCP is not enabled, report `/kavion:memory-index` as the next command.
+"""

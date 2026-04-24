@@ -2,7 +2,7 @@
 
 ## Scope
 
-ForgeKit is a Gemini CLI extension. Security concerns are mostly about:
+Kavion currently ships as a local extension for AI coding workflows. Security concerns are mostly about:
 
 - unsafe tool usage
 - leaking secrets into memory files

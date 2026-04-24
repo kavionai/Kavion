@@ -1,6 +1,6 @@
 {
-  "name": "forgekit",
-  "version": "0.5.0",
-  "description": "AI development team workflow extension for Gemini CLI.",
+  "name": "kavion",
+  "version": "0.1.0",
+  "description": "Structured AI software team workflows with local project memory, real workflow gates, and durable session state.",
   "contextFileName": "GEMINI.md"
 }

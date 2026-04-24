@@ -1,4 +1,4 @@
-# ForgeKit Policies
+# Kavion Policies
 
 This directory contains policy guardrails for safer workflows.
 
@@ -11,7 +11,7 @@ Install locally:
 
 ```bash
 mkdir -p ~/.gemini/policies
-ln -sf "$(pwd)/policies/team-guardrails.toml" ~/.gemini/policies/forgekit-team-guardrails.toml
+ln -sf "$(pwd)/policies/team-guardrails.toml" ~/.gemini/policies/kavion-team-guardrails.toml
 ```
 
 Current guardrails:

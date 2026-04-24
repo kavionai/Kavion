@@ -1,12 +1,12 @@
 # Contributing
 
-ForgeKit is a workflow extension, not just a set of prompt files. Small changes
+Kavion is a workflow extension, not just a set of prompt files. Small changes
 to commands, agents, skills, or memory templates can change runtime behavior
 substantially. Keep changes narrow and validate them.
 
 ## Local Setup
 
-From the `forgekit/` directory:
+From the `kavion/` directory:
 
 ```bash
 gemini extensions link .
@@ -16,7 +16,7 @@ Useful checks:
 
 ```bash
 gemini extensions validate .
-python3 -c "import tomllib; tomllib.load(open('commands/team/fix-issue.toml','rb'))"
+python3 -c "import tomllib; tomllib.load(open('commands/kavion/fix-issue.toml','rb'))"
 ruby -e "require 'yaml'; text=File.read('skills/project-memory-workflow/SKILL.md'); front=text[/\\A---\\n(.*?)\\n---\\n/m,1]; YAML.safe_load(front)"
 node --check mcp-server/index.js
 ```
@@ -36,7 +36,7 @@ node --check mcp-server/index.js
 
 ### Commands
 
-Commands live in `commands/team/` as TOML prompt files.
+Commands live in `commands/kavion/` as TOML prompt files.
 
 When editing a command:
 
@@ -88,6 +88,6 @@ A good PR should include:
 
 ## Current High-Risk Areas
 
-- `/team:fix-issue` later-phase convergence
+- `/kavion:fix-issue` later-phase convergence
 - headless write behavior for session updates
 - optional MCP server enablement

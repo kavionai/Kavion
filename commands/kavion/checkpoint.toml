@@ -1,0 +1,21 @@
+description = "Run a Kavion workflow checkpoint."
+
+prompt = """
+Run a Kavion workflow checkpoint for the current project.
+
+Use MCP tool `kavion_gate` with `ship` when available.
+
+Check:
+- `.gemini/kavion/session.json`
+- `.gemini/kavion/PROJECT.md`
+- `.gemini/kavion/CURRENT.md`
+- `.gemini/kavion/plans/`
+- `.gemini/kavion/reports/`
+- `.gemini/kavion/index/`
+- git state
+
+Return:
+- pass, pass-with-risk, or block
+- exact blocking or risky gates
+- next command
+"""

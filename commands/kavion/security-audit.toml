@@ -1,0 +1,26 @@
+description = "Run a security audit using the Kavion security workflow."
+
+prompt = """
+Run a Kavion security audit.
+
+User request:
+{{args}}
+
+Use these Kavion skills when available:
+- security-review
+- code-review-workflow
+- test-verification
+
+Focus on:
+- auth and authorization
+- secrets
+- payments
+- user data
+- external input
+- injection risks
+- unsafe file or network operations
+- dependency risks
+
+Return findings ordered by severity.
+Do not make code changes unless explicitly asked.
+"""

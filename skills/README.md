@@ -1,6 +1,6 @@
-# ForgeKit Skills
+# Kavion Skills
 
-This directory contains ForgeKit workflow playbooks. Each skill is a folder with
+This directory contains Kavion workflow playbooks. Each skill is a folder with
 a `SKILL.md` file using the Agent Skills format.
 
 Current skills:

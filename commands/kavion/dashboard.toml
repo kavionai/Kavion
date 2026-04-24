@@ -1,0 +1,23 @@
+description = "Show a Kavion project dashboard for memory, session, plans, reports, and next actions."
+
+prompt = """
+Show the Kavion project dashboard.
+
+Use MCP tool `kavion_status` when available. If MCP is not enabled, inspect these project files directly:
+- `.gemini/kavion/CURRENT.md`
+- `.gemini/kavion/PROJECT.md`
+- `.gemini/kavion/session.json`
+- `.gemini/kavion/plans/`
+- `.gemini/kavion/reports/`
+- `.gemini/kavion/index/`
+
+Return:
+- active task
+- current phase/status
+- next step
+- index state
+- expired notes or oversized files
+- latest plans
+- latest reports
+- recommended next command
+"""

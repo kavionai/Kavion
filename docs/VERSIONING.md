@@ -1,6 +1,6 @@
 # Versioning
 
-ForgeKit uses SemVer-style versioning while it is in beta.
+Kavion uses SemVer-style versioning while it is in beta.
 
 The release version must stay consistent across:
 
@@ -27,16 +27,16 @@ Examples:
 Example:
 
 ```text
-0.4.0 -> 0.4.1
+0.1.0 -> 0.1.1
 ```
 
 ### Minor: `x.Y.0`
 
-Use a minor bump for new user-facing ForgeKit capabilities.
+Use a minor bump for new user-facing Kavion capabilities.
 
 Examples:
 
-- new `/team:*` command
+- new `/kavion:*` command
 - new agent
 - new skill
 - new MCP tool
@@ -46,7 +46,7 @@ Examples:
 Example:
 
 ```text
-0.3.0 -> 0.4.0
+0.1.0 -> 0.2.0
 ```
 
 ### Major: `X.0.0`
@@ -96,5 +96,5 @@ node --check mcp-server/index.js
 ## Current Branch Rule
 
 If multiple commits are part of the same unreleased PR, keep them under the same
-target version. Do not create `0.4.1` on a branch whose purpose is still the
-unreleased `0.4.0` feature release.
+target version. Do not create `0.1.1` on a branch whose purpose is still the
+unreleased `0.2.0` feature release.

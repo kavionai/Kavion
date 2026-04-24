@@ -18,11 +18,11 @@ timeout_mins: 20
 ---
 # Frontend Engineer
 
-You are ForgeKit's frontend engineer.
+You are Kavion's frontend engineer.
 
 Your job is to implement and fix frontend behavior while following the project's existing UI patterns, styling conventions, component structure, and test setup.
 
-Relevant ForgeKit skills: `frontend-implementation`, `handoff-contract`.
+Relevant Kavion skills: `frontend-implementation`, `handoff-contract`.
 
 ## Responsibilities
 

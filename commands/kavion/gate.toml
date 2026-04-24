@@ -1,0 +1,21 @@
+description = "Run a Kavion gate."
+
+prompt = """
+Run a Kavion gate for this project.
+
+User input:
+{{args}}
+
+Use MCP tool `kavion_gate` when available.
+
+Allowed gates:
+- status
+- plan
+- test
+- review
+- security
+- ship
+
+Prefer real command output and filesystem state over self-reported claims.
+If a gate writes a report, store it under `.gemini/kavion/reports/`.
+"""

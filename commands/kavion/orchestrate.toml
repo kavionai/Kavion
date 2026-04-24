@@ -1,0 +1,34 @@
+description = "Run the main Kavion orchestration workflow for any software task."
+
+prompt = """
+User request:
+{{args}}
+
+Use the Kavion orchestration workflow.
+
+Required behavior:
+1. Classify the task as Express or Standard.
+2. Before implementation, check whether Kavion memory exists:
+   - `GEMINI.md`
+   - `.gemini/kavion/CURRENT.md`
+   - `.gemini/kavion/session.json`
+3. Read `.gemini/kavion/CURRENT.md` first.
+4. Read `.gemini/kavion/PROJECT.md` or `.gemini/kavion/DECISIONS.md` only when relevant.
+5. For Standard work, create or update `.gemini/kavion/session.json` and write a plan under `.gemini/kavion/plans/`.
+   - Prefer MCP tools `kavion_update_session` and `kavion_write_plan` when available.
+   - Record phase, status, active_agent, next_step, and active specialists.
+6. Delegate only to the needed specialist agents.
+7. After each phase transition, update `.gemini/kavion/session.json` again.
+   - Do not leave the active agent set to `task-planner` after implementation delegation starts.
+8. Use real commands and gates for verification.
+9. Write reports under `.gemini/kavion/reports/` when verification/review/security actually happens.
+   - Prefer MCP tool `kavion_write_report` when available.
+10. If research or debugging produces reusable findings, write a note under `.gemini/kavion/notes/`.
+11. Update `.gemini/kavion/CURRENT.md` and session state before the final response.
+12. Refresh `.gemini/kavion/index/` after memory changes.
+13. Run a checkpoint before handoff.
+
+Do not call every agent by default.
+Do not read large memory files unless the task needs them.
+Do not finish Standard work without a Memory section in the final response.
+"""

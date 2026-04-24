@@ -16,18 +16,18 @@ npm --prefix mcp-server run check
 Inside Gemini CLI:
 
 ```text
-/team:init-project
-/team:feature "Build a small API"
-/team:checkpoint
-/team:release-readiness
+/kavion:init-project
+/kavion:feature "Build a small API"
+/kavion:checkpoint
+/kavion:release-readiness
 ```
 
-ForgeKit 2 commands:
+Kavion commands:
 
 ```text
-/forge:init-project
-/forge:status
-/forge:gate ship
-/forge:migrate
-/forge:search "current task"
+/kavion:init-project
+/kavion:status
+/kavion:gate ship
+/kavion:migrate
+/kavion:search "current task"
 ```

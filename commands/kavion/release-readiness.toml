@@ -1,0 +1,21 @@
+description = "Decide whether the current Kavion task is truly ready to ship, archive, or hand off."
+
+prompt = """
+Evaluate release readiness for the current Kavion task.
+
+Use MCP tool `kavion_gate` with `ship` when available.
+
+The decision must come from real state:
+- plan file presence and file references
+- test command exit code
+- review report freshness
+- security command result when triggered
+- git status cleanliness
+- branch safety
+- current session state
+
+Return:
+- ready or not-ready
+- exact blocking gate
+- next command
+"""

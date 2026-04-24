@@ -1,0 +1,23 @@
+description = "Run a compliance-oriented engineering check for privacy, data, licensing, or policy concerns."
+
+prompt = """
+Run a Kavion compliance check.
+
+User request:
+{{args}}
+
+Use these Kavion skills when available:
+- compliance-review
+- security-review
+- github-workflow
+
+Check relevant concerns:
+- personal data handling
+- consent, retention, deletion, and auditability
+- access controls
+- sensitive logging
+- third-party dependency or license concerns
+- organization policy requirements
+
+Do not provide legal advice. Focus on engineering controls, risks, and open policy questions.
+"""

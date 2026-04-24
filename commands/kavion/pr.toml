@@ -1,0 +1,26 @@
+description = "Prepare a pull request using the Kavion GitHub workflow."
+
+prompt = """
+Use the Kavion PR workflow.
+
+Use these Kavion skills when available:
+- github-workflow
+- test-verification
+- code-review-workflow
+- devops-docs-maintenance
+
+User request:
+{{args}}
+
+Required flow:
+1. Use github-workflow-manager to inspect branch, status, commits, linked issue, and PR readiness.
+2. Use qa-test-engineer to confirm required verification has run or identify missing tests.
+3. Use code-reviewer to confirm there are no obvious blocking issues.
+4. Use devops-docs-engineer if docs, build, config, or CI changed.
+5. Prepare a clear PR summary:
+   - what changed
+   - why
+   - tests run
+   - risk
+   - linked issue
+"""

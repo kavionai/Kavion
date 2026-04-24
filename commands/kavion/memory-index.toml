@@ -1,0 +1,29 @@
+description = "Build or refresh the local Kavion memory index for this project."
+
+prompt = """
+Build or refresh the local Kavion memory index.
+
+Use MCP tool `kavion_build_index` when available. If the MCP server is not enabled, create or update the index manually using normal file tools.
+
+Index these sources:
+- `.gemini/kavion/PROJECT.md`
+- `.gemini/kavion/DECISIONS.md`
+- `.gemini/kavion/CURRENT.md`
+- `.gemini/kavion/session.json`
+- `.gemini/kavion/history.jsonl`
+- `.gemini/kavion/plans/`
+- `.gemini/kavion/reports/`
+- `.gemini/kavion/notes/`
+
+Write index files under:
+- `.gemini/kavion/index/chunks.jsonl`
+- `.gemini/kavion/index/bm25.json`
+- `.gemini/kavion/index/.dirty`
+
+Rules:
+1. Markdown and session files remain the source of truth.
+2. The index is only a searchable cache.
+3. Use heading-aware chunks when possible.
+4. Do not index secrets or `.env` files.
+5. If no memory files exist, report that `/kavion:init-project` should run first.
+"""

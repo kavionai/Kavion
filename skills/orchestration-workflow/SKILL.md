@@ -1,10 +1,10 @@
 ---
 name: orchestration-workflow
-description: Use this skill for the main ForgeKit workflow that classifies a task, chooses Express or Standard execution, delegates to specialist agents, applies gates, and returns a final report.
+description: Use this skill for the main Kavion workflow that classifies a task, chooses Express or Standard execution, delegates to specialist agents, applies gates, and returns a final report.
 ---
 # Orchestration workflow
 
-Use this skill for `/team:orchestrate` and for any request that does not fit a
+Use this skill for `/kavion:orchestrate` and for any request that does not fit a
 more specific team command.
 
 ## Complexity classification

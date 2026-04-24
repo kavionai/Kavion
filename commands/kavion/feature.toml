@@ -1,0 +1,50 @@
+description = "Build a feature using the Kavion workflow."
+
+prompt = """
+User request:
+{{args}}
+
+Use the Kavion feature workflow.
+
+Required flow:
+1. Check whether Kavion memory exists:
+   - `GEMINI.md`
+   - `.gemini/kavion/CURRENT.md`
+   - `.gemini/kavion/session.json`
+   If missing, initialize project memory before implementation when writes are permitted.
+2. Read `.gemini/kavion/CURRENT.md` first. Read `PROJECT.md` and `DECISIONS.md` only when the task needs them.
+3. Create or update `.gemini/kavion/session.json` before implementation when writes are permitted.
+   - Set task, slug, workflow, phase, status, and active agent.
+   - Prefer MCP tool `kavion_update_session` when available instead of hand-editing JSON.
+4. Use task-planner for multi-step work and persist `plan-<task-slug>.md` under `.gemini/kavion/plans/`.
+   - Prefer MCP tool `kavion_write_plan` when available.
+   - Do not keep the plan only in the response text.
+5. Use the correct implementation agents only.
+6. After each meaningful phase transition, update `.gemini/kavion/session.json` again.
+   - planning -> implementation
+   - implementation -> verification
+   - verification -> review
+   - review -> handoff
+   Update active_agent, agents_used, files_touched, blockers, next_step, and verification as they change.
+7. If investigation or debugging produced reusable findings, persist a note under `.gemini/kavion/notes/`.
+   - Prefer MCP tool `kavion_write_note` when available.
+   - Do not create notes for trivial one-off observations.
+8. For verification, prefer real commands and gate checks over self-reported claims.
+9. For Standard work, keep evidence reports under `.gemini/kavion/reports/`.
+   - Persist QA/test reports.
+   - Persist code review reports.
+   - Persist security reports when sensitive work is involved.
+   - Prefer MCP tool `kavion_write_report` when available.
+10. Before final response, update:
+   - `.gemini/kavion/CURRENT.md`
+   - `.gemini/kavion/DECISIONS.md` only for real decisions
+   - `.gemini/kavion/session.json`
+   - Prefer MCP tool `kavion_update_current` for CURRENT.md.
+11. Refresh `.gemini/kavion/index/` after meaningful memory changes.
+12. Run a checkpoint before calling the task done.
+
+Do not auto-load large memory files.
+Do not finish Standard work without plan/report files unless writes are blocked and deferred clearly.
+Do not leave `session.json` stuck in `planning` once implementation has started.
+Do not claim release readiness when ship gate blocks.
+"""

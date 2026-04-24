@@ -14,7 +14,7 @@ Use this skill when changes touch sensitive behavior or external input.
 4. Separate confirmed findings from assumptions.
 5. Recommend concrete fixes and tests.
 6. State residual risk.
-7. For Standard or sensitive work, write a security report under `.gemini/forgekit/reports/`.
+7. For Standard or sensitive work, write a security report under `.gemini/kavion/reports/`.
 
 ## Review checklist
 

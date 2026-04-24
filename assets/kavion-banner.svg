@@ -1,0 +1,70 @@
+<svg width="1280" height="520" viewBox="0 0 1280 520" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Kavion</title>
+  <desc id="desc">Kavion banner for a local-first AI software workflow system with project memory, MCP tools, verification gates, and delivery flow.</desc>
+
+  <rect width="1280" height="520" fill="#F7F9FB"/>
+  <path d="M0 0H1280V520H0V0Z" fill="#F7F9FB"/>
+  <path d="M80 92H1200" stroke="#DADCE0" stroke-width="1"/>
+  <path d="M80 428H1200" stroke="#DADCE0" stroke-width="1"/>
+  <path d="M80 92V428" stroke="#DADCE0" stroke-width="1"/>
+  <path d="M1200 92V428" stroke="#DADCE0" stroke-width="1"/>
+
+  <g transform="translate(80 92)">
+    <rect width="1120" height="336" rx="8" fill="#FFFFFF" stroke="#202124" stroke-width="2"/>
+    <rect width="1120" height="12" rx="6" fill="#202124"/>
+
+    <g transform="translate(56 60)">
+      <rect width="72" height="72" rx="8" fill="#00A887"/>
+      <path d="M22 46H45L35 62H12L22 46Z" fill="#FFFFFF"/>
+      <path d="M33 18H56L46 34H23L33 18Z" fill="#FFFFFF" opacity="0.9"/>
+      <path d="M54 46H77L67 62H44L54 46Z" fill="#FFFFFF" opacity="0.75"/>
+    </g>
+
+    <text x="152" y="112" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="68" font-weight="850" fill="#202124" letter-spacing="0">Kavion</text>
+    <text x="156" y="156" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="22" font-weight="600" fill="#3C4043" letter-spacing="0">Structured AI software workflows with local memory and real gates.</text>
+
+    <g transform="translate(56 208)">
+      <g>
+        <rect width="158" height="54" rx="8" fill="#E8F5F1" stroke="#00A887" stroke-width="2"/>
+        <text x="79" y="33" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="800" fill="#202124">Main Agent</text>
+      </g>
+      <path d="M176 27H232" stroke="#202124" stroke-width="2" stroke-linecap="round"/>
+      <path d="M232 27L222 21V33L232 27Z" fill="#202124"/>
+
+      <g transform="translate(252 0)">
+        <rect width="166" height="54" rx="8" fill="#EEF3FE" stroke="#4C7BE8" stroke-width="2"/>
+        <text x="83" y="24" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="800" fill="#202124">Specialists</text>
+        <text x="83" y="41" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600" fill="#5F6368">frontend backend QA</text>
+      </g>
+      <path d="M436 27H492" stroke="#202124" stroke-width="2" stroke-linecap="round"/>
+      <path d="M492 27L482 21V33L492 27Z" fill="#202124"/>
+
+      <g transform="translate(512 0)">
+        <rect width="178" height="54" rx="8" fill="#FFF6DE" stroke="#D9A000" stroke-width="2"/>
+        <text x="89" y="24" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="800" fill="#202124">Project Memory</text>
+        <text x="89" y="41" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600" fill="#5F6368">sessions search dashboard</text>
+      </g>
+      <path d="M708 27H764" stroke="#202124" stroke-width="2" stroke-linecap="round"/>
+      <path d="M764 27L754 21V33L764 27Z" fill="#202124"/>
+
+      <g transform="translate(784 0)">
+        <rect width="182" height="54" rx="8" fill="#FDECEE" stroke="#D64550" stroke-width="2"/>
+        <text x="91" y="24" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="800" fill="#202124">Verified Output</text>
+        <text x="91" y="41" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600" fill="#5F6368">tests review GitHub</text>
+      </g>
+    </g>
+
+    <g transform="translate(828 62)">
+      <rect width="236" height="116" rx="8" fill="#FAFAFA" stroke="#DADCE0"/>
+      <text x="24" y="38" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="800" fill="#202124">Built for real projects</text>
+      <g transform="translate(24 58)">
+        <circle cx="6" cy="6" r="4" fill="#00A887"/>
+        <text x="20" y="10" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="650" fill="#3C4043">Memory-first execution</text>
+      </g>
+      <g transform="translate(24 82)">
+        <circle cx="6" cy="6" r="4" fill="#4C7BE8"/>
+        <text x="20" y="10" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="650" fill="#3C4043">MCP tools and commands</text>
+      </g>
+    </g>
+  </g>
+</svg>

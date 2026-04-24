@@ -1,4 +1,4 @@
-# ForgeKit policy guardrails.
+# Kavion policy guardrails.
 #
 # Gemini CLI loads policies from ~/.gemini/policies/*.toml by default, or from
 # configured policyPaths. Copy or link this file into ~/.gemini/policies/ to
@@ -9,14 +9,14 @@ toolName = "run_shell_command"
 commandPrefix = "rm -rf"
 decision = "deny"
 priority = 900
-denyMessage = "ForgeKit blocked a destructive rm -rf command."
+denyMessage = "Kavion blocked a destructive rm -rf command."
 
 [[rule]]
 toolName = "run_shell_command"
 commandPrefix = "git reset --hard"
 decision = "deny"
 priority = 900
-denyMessage = "ForgeKit blocked git reset --hard."
+denyMessage = "Kavion blocked git reset --hard."
 
 [[rule]]
 toolName = "run_shell_command"

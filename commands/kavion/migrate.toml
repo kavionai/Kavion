@@ -1,0 +1,22 @@
+description = "Preview or apply migration to Kavion memory layout."
+
+prompt = """
+Migrate this project from the old Kavion layout to Kavion.
+
+User input:
+{{args}}
+
+Use MCP tool `kavion_migrate` when available.
+
+Default to dry-run unless the user clearly asks to apply the migration.
+
+Target layout:
+- `.gemini/kavion/PROJECT.md`
+- `.gemini/kavion/DECISIONS.md`
+- `.gemini/kavion/CURRENT.md`
+- `.gemini/kavion/session.json`
+- `.gemini/kavion/history.jsonl`
+- `.gemini/kavion/gates.yaml`
+- `.gemini/kavion/index/chunks.jsonl`
+- `.gemini/kavion/index/bm25.json`
+"""

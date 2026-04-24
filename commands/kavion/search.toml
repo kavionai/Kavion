@@ -1,0 +1,20 @@
+description = "Search Kavion memory."
+
+prompt = """
+Search Kavion project memory.
+
+User query:
+{{args}}
+
+Use MCP tool `kavion_search` when available.
+
+Search these sources through the local BM25 index:
+- `.gemini/kavion/PROJECT.md`
+- `.gemini/kavion/DECISIONS.md`
+- `.gemini/kavion/CURRENT.md`
+- `.gemini/kavion/plans/`
+- `.gemini/kavion/reports/`
+- `.gemini/kavion/notes/`
+
+Return top matching chunks first. Read full files only if needed.
+"""

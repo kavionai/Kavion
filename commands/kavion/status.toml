@@ -1,0 +1,21 @@
+description = "Show Kavion status for this project."
+
+prompt = """
+Show Kavion status for this project.
+
+Use MCP tool `kavion_status` when available.
+
+Check:
+- `.gemini/kavion/CURRENT.md`
+- `.gemini/kavion/session.json`
+- `.gemini/kavion/index/`
+- git branch and git status
+
+Return:
+- active task
+- current phase/status
+- blockers
+- next step
+- memory/index health
+- latest plans/reports
+"""

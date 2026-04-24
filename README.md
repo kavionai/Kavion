@@ -1,24 +1,24 @@
 <p align="center">
-  <img src="assets/forgekit-banner.svg" alt="ForgeKit: AI software team workflow extension for Gemini CLI" width="100%">
+  <img src="assets/kavion-banner.svg" alt="Kavion workflow system banner" width="100%">
 </p>
 
 <p align="center">
-  <strong>Turn Gemini CLI into a structured AI software team with project memory, specialist agents, real workflow gates, and local BM25 memory search.</strong>
+  <strong>Structured AI software team workflows with local project memory, real workflow gates, and durable session state.</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/kalpeshchouhan/forgekit"><img alt="Version" src="https://img.shields.io/badge/version-0.5.0-202124"></a>
+  <a href="https://github.com/kalpeshchouhan/Kavion"><img alt="Version" src="https://img.shields.io/badge/version-0.1.0-202124"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-00A887"></a>
-  <img alt="Gemini CLI" src="https://img.shields.io/badge/Gemini%20CLI-extension-4C7BE8">
+  <img alt="AI Coding CLI" src="https://img.shields.io/badge/AI%20coding%20CLI-extension-4C7BE8">
   <img alt="MCP" src="https://img.shields.io/badge/MCP-supported-D9A000">
   <img alt="Memory" src="https://img.shields.io/badge/memory-BM25%20local-D64550">
 </p>
 
-# ForgeKit
+# Kavion
 
-ForgeKit is a Gemini CLI extension that turns a single Gemini session into a structured software team workflow.
+Kavion is a local-first workflow system for AI coding CLIs. It keeps project memory small, verification honest, and active work resumable.
 
-ForgeKit 2 changes the memory model:
+Core architecture:
 
 - `PROJECT.md`, `DECISIONS.md`, and `CURRENT.md` replace the old `.gemini/context/` sprawl
 - `session.json` and `history.jsonl` replace `sessions/active/` and `sessions/archive/`
@@ -26,45 +26,38 @@ ForgeKit 2 changes the memory model:
 - gates use real command output and filesystem state instead of trusting self-written reports
 
 <p align="center">
-  <img src="assets/forgekit-workflow.svg" alt="ForgeKit workflow diagram" width="100%">
+  <img src="assets/kavion-workflow.svg" alt="Kavion workflow diagram" width="100%">
 </p>
 
 ## Quick Start
 
-From this directory:
+Current install path:
 
 ```bash
 gemini extensions link .
 ```
 
-Restart Gemini CLI after linking or changing extension files.
+Restart your CLI after linking or changing extension files.
 
-Inside Gemini CLI:
+Inside the CLI:
 
 ```text
 /extensions list
-/team:init-project
-/team:feature "Build a settings page"
-/team:checkpoint
-/team:release-readiness
-```
-
-New ForgeKit 2 commands:
-
-```text
-/forge:init-project
-/forge:status
-/forge:gate ship
-/forge:migrate
-/forge:search "auth flow"
+/kavion:init-project
+/kavion:feature "Build a settings page"
+/kavion:init-project
+/kavion:status
+/kavion:gate ship
+/kavion:migrate
+/kavion:search "auth flow"
 ```
 
 ## Memory Layout
 
-ForgeKit 2 uses:
+Kavion uses:
 
 ```text
-.gemini/forgekit/
+.gemini/kavion/
   PROJECT.md
   DECISIONS.md
   DECISIONS-archive.md
@@ -91,14 +84,14 @@ Design rules:
 
 ## Gates
 
-ForgeKit 2 has one gate surface:
+Kavion has one gate surface:
 
 ```text
-/forge:gate plan
-/forge:gate test
-/forge:gate review
-/forge:gate security
-/forge:gate ship
+/kavion:gate plan
+/kavion:gate test
+/kavion:gate review
+/kavion:gate security
+/kavion:gate ship
 ```
 
 These gates rely on:

@@ -1,6 +1,6 @@
 # Publishing
 
-Use this checklist before making ForgeKit public.
+Use this checklist before making Kavion public.
 
 ## Pre-publish
 
@@ -17,7 +17,7 @@ Use this checklist before making ForgeKit public.
 
 ```bash
 gemini extensions validate .
-python3 -c "import tomllib; tomllib.load(open('commands/team/fix-issue.toml','rb'))"
+python3 -c "import tomllib; tomllib.load(open('commands/kavion/fix-issue.toml','rb'))"
 node --check mcp-server/index.js
 ```
 
@@ -42,13 +42,13 @@ git status --short
 Suggested title:
 
 ```text
-Release ForgeKit v0.5.0
+Release Kavion v0.1.0
 ```
 
 Suggested summary:
 
 ```text
-- ship ForgeKit 2 memory layout and BM25 search
+- ship Kavion memory layout and BM25 search
 - move workflow enforcement to real gates
 - add migration support from the old memory layout
 ```
@@ -58,7 +58,7 @@ Suggested summary:
 Suggested repo description:
 
 ```text
-Gemini CLI extension for structured multi-agent software development workflows.
+Structured AI software team workflows with local project memory, real workflow gates, and durable session state.
 ```
 
 Suggested topics:
@@ -76,7 +76,7 @@ Suggested topics:
 ```bash
 git init
 git add .
-git commit -m "Initial open-source release of ForgeKit"
+git commit -m "Initial open-source release of Kavion"
 git branch -M main
 git remote add origin <your-repo-url>
 git push -u origin main
@@ -84,13 +84,13 @@ git push -u origin main
 
 ## Recommended First Release State
 
-Publish as a beta or `v0.5.0` style release, not as a fully stable
+Publish as a beta or `v0.1.0` style release, not as a fully stable
 automation platform.
 
 Current honest positioning:
 
 - ready to use
 - strong beta
-- ForgeKit 2 memory, BM25 search, and real gates are in place
+- Kavion memory, BM25 search, and real gates are in place
 - migration support exists for older project layouts
 - not yet fully battle-tested for long autonomous write-heavy runs across many projects

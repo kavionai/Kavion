@@ -1,0 +1,14 @@
+description = "Compact Kavion memory safely."
+
+prompt = """
+Compact Kavion memory safely.
+
+Required:
+1. Keep `.gemini/kavion/CURRENT.md` focused on the active task only.
+2. Delete expired notes under `.gemini/kavion/notes/` unless marked persistent.
+3. Report oversized PROJECT.md, CURRENT.md, or DECISIONS.md.
+4. Refresh `.gemini/kavion/index/` after compaction if indexing is in use.
+
+Use MCP tool `kavion_memory_gc` when available.
+Do not delete useful live session state.
+"""

@@ -1,0 +1,17 @@
+description = "Update Kavion project memory after meaningful work."
+
+prompt = """
+Update Kavion project memory after meaningful work.
+
+Required:
+1. Update `.gemini/kavion/CURRENT.md` with the active task, status, blockers, and next step.
+2. Update `.gemini/kavion/DECISIONS.md` only if a real technical decision was made.
+3. Update `.gemini/kavion/PROJECT.md` only if repo-level truths changed.
+4. Keep detailed research or debugging only in `.gemini/kavion/notes/` when it will be reused.
+5. Keep reports in `.gemini/kavion/reports/`.
+6. Keep plans in `.gemini/kavion/plans/`.
+7. Refresh `.gemini/kavion/index/` after updates.
+
+Do not turn CURRENT.md into a long archive.
+Do not duplicate the same fact across many files.
+"""
