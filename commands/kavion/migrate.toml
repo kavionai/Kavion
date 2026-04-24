@@ -15,7 +15,8 @@ Target layout:
 - `.kavion/DECISIONS.md`
 - `.kavion/CURRENT.md`
 - `.kavion/session.json`
-- `.kavion/history.jsonl`
+- `.kavion/state.db`
+- `.kavion/history/`
 - `.kavion/gates.yaml`
 - `.kavion/index/chunks.jsonl`
 - `.kavion/index/bm25.json`

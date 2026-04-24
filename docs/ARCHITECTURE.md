@@ -1,25 +1,32 @@
 # Kavion Architecture
 
-Kavion has four main parts:
+Kavion has five main parts:
 
 1. extension files and configuration
-2. specialist agent prompts
-3. slash command workflows
-4. optional MCP runtime for memory, search, migration, and gates
+2. Gemini hook enforcement
+3. specialist agent prompts
+4. slash command workflows
+5. worker-backed MCP runtime for memory, search, migration, and gates
 
 ## Memory Model
 
-Kavion replaces the old `.gemini/context/` layout with:
+Kavion now splits state into:
 
-- `PROJECT.md`
-- `DECISIONS.md`
-- `CURRENT.md`
-- `session.json`
-- `history.jsonl`
-- `plans/`
-- `reports/`
-- `notes/`
-- `index/`
+- primary human memory
+  - `PROJECT.md`
+  - `DECISIONS.md`
+- machine truth
+  - `.kavion/state.db`
+- rendered views
+  - `CURRENT.md`
+  - `session.json`
+  - `history/`
+- artifact folders
+  - `plans/`
+  - `reports/`
+  - `notes/`
+- rebuildable index
+  - `index/`
 
 ## Search
 
@@ -44,6 +51,16 @@ The important design rule is:
 
 > gates read real state, not agent self-report
 
+## Hooks
+
+The v1 hook set is:
+
+- `SessionStart`
+- `BeforeAgent`
+- `AfterTool`
+
+These hooks call the worker, not direct file mutations.
+
 ## Migration
 
-The MCP server can migrate legacy ForgeKit memory layouts into the Kavion layout when older project state is still present under `.gemini/context/` or `.gemini/forgekit/`.
+The worker can migrate the older file-first Kavion session flow into SQLite-backed state while preserving existing plans, reports, and notes.

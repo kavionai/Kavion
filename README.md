@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kalpeshchouhan/Kavion"><img alt="Version" src="https://img.shields.io/badge/version-0.1.0-202124"></a>
+  <a href="https://github.com/kalpeshchouhan/Kavion"><img alt="Version" src="https://img.shields.io/badge/version-0.2.0-202124"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-00A887"></a>
   <img alt="AI Coding CLI" src="https://img.shields.io/badge/AI%20coding%20CLI-extension-4C7BE8">
   <img alt="MCP" src="https://img.shields.io/badge/MCP-supported-D9A000">
@@ -20,10 +20,11 @@ Kavion is a local-first workflow system for AI coding CLIs. It keeps project mem
 
 Core architecture:
 
-- `PROJECT.md`, `DECISIONS.md`, and `CURRENT.md` replace the old `.gemini/context/` sprawl
-- `session.json` and `history.jsonl` replace `sessions/active/` and `sessions/archive/`
-- `chunks.jsonl` and `bm25.json` replace the old LanceDB and vector JSONL memory cache
-- gates use real command output and filesystem state instead of trusting self-written reports
+- `.kavion/state.db` is the machine source of truth for task and session state
+- `CURRENT.md` and `session.json` are rendered views, not writable state inputs
+- `PROJECT.md` and `DECISIONS.md` stay human-authored and git-tracked
+- `chunks.jsonl` and `bm25.json` stay rebuildable local search cache
+- Gemini hooks observe the workflow and the worker enforces the state machine
 
 <p align="center">
   <img src="assets/kavion-workflow.svg" alt="Kavion workflow diagram" width="100%">
@@ -44,8 +45,8 @@ Inside the CLI:
 ```text
 /extensions list
 /kavion:init-project
+/kavion:start "Build a settings page"
 /kavion:feature "Build a settings page"
-/kavion:init-project
 /kavion:status
 /kavion:gate ship
 /kavion:migrate
@@ -63,7 +64,8 @@ Kavion uses:
   DECISIONS-archive.md
   CURRENT.md
   session.json
-  history.jsonl
+  state.db
+  history/
   gates.yaml
   plans/
   reports/
@@ -76,10 +78,10 @@ Kavion uses:
 
 Design rules:
 
-- Markdown and JSON files are the source of truth.
+- SQLite is the machine source of truth.
+- `CURRENT.md` and `session.json` are rendered from worker state.
+- `PROJECT.md` and `DECISIONS.md` are primary human memory.
 - The BM25 index is a rebuildable cache.
-- `CURRENT.md` and `session.json` are the hot memory.
-- `PROJECT.md` and `DECISIONS.md` are read on demand, not every turn.
 - Notes are optional and can expire.
 
 ## Gates
@@ -102,20 +104,28 @@ These gates rely on:
 - branch state
 - current session state
 
-## MCP Server
+## Worker + MCP Server
 
-The MCP server now provides:
+The worker + MCP server now provide:
 
 - workspace initialization
-- session update/archive
+- worker-backed session start and phase transitions
+- plan and report artifacts backed by SQLite
+- rendered `CURRENT.md` and `session.json`
 - BM25 index build and search
 - chunk reads
-- migration from the old memory layout
+- migration from the file-first memory layout
 - note writing with TTL rules
 - memory hygiene checks
 - real workflow gates
 
-Enable it after running `npm install` in `mcp-server/`.
+`/kavion:init-project` also installs the minimal Gemini hook set into project `.gemini/settings.json`:
+
+- `SessionStart`
+- `BeforeAgent`
+- `AfterTool`
+
+Enable the worker after running `npm install` in `mcp-server/`.
 
 ## Docs
 

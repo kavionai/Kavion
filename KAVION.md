@@ -17,19 +17,22 @@ Use Kavion for serious software work: feature implementation, bug fixes, debuggi
 For non-trivial coding work:
 
 1. Consult relevant Kavion skill files when available.
-2. Check whether Kavion project memory exists. If `KAVION.md` or `.kavion/CURRENT.md` is missing, initialize project memory before implementation or report that memory initialization is required.
+2. Check whether Kavion project memory exists. If `KAVION.md` or `.kavion/CURRENT.md` is missing, initialize project memory first.
 3. Read `.kavion/CURRENT.md` first.
 4. Read `.kavion/PROJECT.md` and `.kavion/DECISIONS.md` only when the task actually needs them.
-5. For Standard work, create or update `.kavion/session.json` before implementation when writes are permitted.
-6. Use plans for multi-step work under `.kavion/plans/plan-<slug>.md`.
-7. Use real commands and filesystem state for verification and gates.
-8. Use `qa-test-engineer` for verification.
-9. Use `security-engineer` when auth, permissions, secrets, payments, user data, or external input are involved.
-10. Use `code-reviewer` before the final response.
-11. Use `github-workflow-manager` for GitHub issues, branches, PRs, review comments, and CI status.
-12. Before final response, update project memory and session state when writes are permitted.
-13. After updating memory or session state, refresh `.kavion/index/` using `kavion_build_index` when MCP is available, or `/kavion:memory-index` when it is not.
-14. Run a workflow checkpoint before handoff. Do not call work release-ready when ship gate blocks.
+5. For non-trivial work, start or resume the worker-backed session before implementation.
+   - Prefer MCP tool `kavion_session_start`.
+   - Do not hand-edit `.kavion/session.json`; it is a rendered view.
+6. Use `kavion_session_transition` to move between `init`, `plan`, `code`, `test`, `review`, and `ship`.
+7. Use `kavion_plan_create` for multi-step work. Medium work must not enter `code` phase without a plan artifact.
+8. Use real commands and filesystem state for verification and gates.
+9. Use `qa-test-engineer` for verification.
+10. Use `security-engineer` when auth, permissions, secrets, payments, user data, or external input are involved.
+11. Use `code-reviewer` before the final response.
+12. Use `kavion_report_create` for QA, review, and security reports.
+13. Before final response, keep shared state in the worker. Let Kavion render `.kavion/CURRENT.md` and `.kavion/session.json`.
+14. After meaningful memory changes, refresh `.kavion/index/` using `kavion_build_index` when MCP is available, or `/kavion:memory-index` when it is not.
+15. Do not call work release-ready when ship gate blocks.
 
 Do not treat memory as optional for non-trivial work.
 Final responses for non-trivial work must include a Memory section showing updated, unchanged, or deferred memory files, index refresh status, and gate/checkpoint status.
@@ -37,6 +40,7 @@ Final responses for non-trivial work must include a Memory section showing updat
 ## Preferred Commands
 
 - `/kavion:init-project`
+- `/kavion:start`
 - `/kavion:orchestrate`
 - `/kavion:fix-issue`
 - `/kavion:feature`

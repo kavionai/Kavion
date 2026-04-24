@@ -4,7 +4,7 @@ prompt = """
 Resume the current Kavion task.
 
 Required:
-1. Read `.kavion/session.json`.
+1. Prefer MCP tool `kavion_session_start` with no task title to resume the active worker-backed session.
 2. Read `.kavion/CURRENT.md`.
 3. Read `.kavion/PROJECT.md` or `.kavion/DECISIONS.md` only if needed.
 4. Continue from the saved next step.

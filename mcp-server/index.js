@@ -1,49 +1,55 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import MiniSearch from 'minisearch';
 import YAML from 'yaml';
 
+const serverVersion = '0.2.0';
+
+const modulePath = fileURLToPath(import.meta.url);
+const serverDir = path.dirname(modulePath);
+const extensionPath = path.dirname(serverDir);
 const workspacePath = process.env.KAVION_WORKSPACE_PATH || process.env.FORGEKIT_WORKSPACE_PATH || process.cwd();
+
 const kavionRoot = path.join(workspacePath, '.kavion');
+const geminiRoot = path.join(workspacePath, '.gemini');
 const indexRoot = path.join(kavionRoot, 'index');
 const notesRoot = path.join(kavionRoot, 'notes');
 const plansRoot = path.join(kavionRoot, 'plans');
 const reportsRoot = path.join(kavionRoot, 'reports');
-const legacyGeminiRoot = path.join(workspacePath, '.gemini');
-const legacyGeminiKavionRoot = path.join(legacyGeminiRoot, 'kavion');
-const legacyContextRoot = path.join(legacyGeminiRoot, 'context');
-const legacyArchiveRoot = path.join(legacyGeminiRoot, 'archive');
-const legacyForgeRoot = path.join(legacyGeminiRoot, 'forgekit');
-const legacySessionsRoot = path.join(legacyForgeRoot, 'sessions');
-const legacyMemoryRoot = path.join(legacyForgeRoot, 'memory');
+const historyRoot = path.join(kavionRoot, 'history');
 
+const stateDbFile = path.join(kavionRoot, 'state.db');
 const projectFile = path.join(kavionRoot, 'PROJECT.md');
 const decisionsFile = path.join(kavionRoot, 'DECISIONS.md');
 const decisionsArchiveFile = path.join(kavionRoot, 'DECISIONS-archive.md');
 const currentFile = path.join(kavionRoot, 'CURRENT.md');
 const sessionFile = path.join(kavionRoot, 'session.json');
-const historyFile = path.join(kavionRoot, 'history.jsonl');
 const gatesFile = path.join(kavionRoot, 'gates.yaml');
+const workerLogFile = path.join(kavionRoot, 'worker.log');
+const fallbackEventsFile = path.join(kavionRoot, 'fallback.jsonl');
 const chunksFile = path.join(indexRoot, 'chunks.jsonl');
 const miniSearchFile = path.join(indexRoot, 'bm25.json');
+const indexMetaFile = path.join(indexRoot, '.meta.json');
 const dirtyFile = path.join(indexRoot, '.dirty');
+const projectGeminiSettingsFile = path.join(geminiRoot, 'settings.json');
 
-const serverVersion = '0.1.0';
 const maxProjectLines = 300;
 const maxCurrentLines = 50;
 const maxDecisionEntries = 200;
-const maxNoteWords = 2000;
 const minNoteWords = 100;
+const maxNoteWords = 2000;
 const noteTtlDays = 14;
 
 const searchOptions = {
   fields: ['text', 'heading_path'],
-  storeFields: ['path', 'heading_path', 'type', 'updated', 'tokens'],
+  storeFields: ['path', 'heading_path', 'type', 'updated', 'tokens', 'session_id', 'task_id'],
   searchOptions: {
     boost: { heading_path: 2 },
     fuzzy: 0.2,
@@ -52,49 +58,37 @@ const searchOptions = {
 };
 
 const defaultGateConfig = {
+  plan: {
+    required_for: ['medium', 'large'],
+  },
   test: {
     command: null,
-    coverage_file: null,
-    coverage_threshold: 0,
   },
   review: {
-    required_sections: ['Issues', 'Verified'],
+    required_sections: ['Summary', 'Evidence'],
   },
   security: {
     trigger_paths: ['src/auth/**', 'src/crypto/**', '**/Dockerfile', 'package.json'],
     command: null,
   },
-  ship: {
-    default_branch: 'main',
-  },
 };
+
+let dbHandle = null;
 
 function rel(filePath) {
   return path.relative(workspacePath, filePath).replace(/\\/g, '/');
 }
 
-function rootRel(filePath) {
-  return path.relative(workspacePath, filePath).replace(/\\/g, '/');
+function nowMs() {
+  return Date.now();
 }
 
-function isoNow() {
-  return new Date().toISOString();
+function isoNow(ms = nowMs()) {
+  return new Date(ms).toISOString();
 }
 
-function sha1(value) {
-  return crypto.createHash('sha1').update(value).digest('hex');
-}
-
-function sha256(value) {
-  return crypto.createHash('sha256').update(value).digest('hex');
-}
-
-function slugify(value) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80) || 'task';
+function makeId(prefix) {
+  return `${prefix}_${crypto.randomUUID().replace(/-/g, '')}`;
 }
 
 function normalizeWhitespace(value) {
@@ -105,6 +99,13 @@ function normalizeWhitespace(value) {
     .trim();
 }
 
+function tokenize(value) {
+  return String(value || '')
+    .toLowerCase()
+    .split(/[^a-z0-9_./:-]+/g)
+    .filter((token) => token.length > 1);
+}
+
 function lines(value) {
   return normalizeWhitespace(value).split('\n').filter(Boolean);
 }
@@ -113,19 +114,47 @@ function wordCount(value) {
   return normalizeWhitespace(value).split(/\s+/).filter(Boolean).length;
 }
 
-function tokenize(value) {
+function slugify(value) {
   return String(value || '')
     .toLowerCase()
-    .split(/[^a-z0-9_./:-]+/g)
-    .filter((token) => token.length > 1);
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'task';
+}
+
+function sha1(value) {
+  return crypto.createHash('sha1').update(value).digest('hex');
+}
+
+function sha256(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
 }
 
 function uniq(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
-function truthy(value) {
-  return value === true || /^true$/i.test(String(value || '').trim());
+function parseJson(value, fallback) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function safeJson(value) {
+  return JSON.stringify(value ?? {});
+}
+
+function text(data) {
+  return {
+    content: [
+      {
+        type: 'text',
+        text: typeof data === 'string' ? data : JSON.stringify(data, null, 2),
+      },
+    ],
+  };
 }
 
 async function exists(filePath) {
@@ -135,14 +164,6 @@ async function exists(filePath) {
   } catch {
     return false;
   }
-}
-
-async function ensureDirs() {
-  await fs.mkdir(kavionRoot, { recursive: true });
-  await fs.mkdir(indexRoot, { recursive: true });
-  await fs.mkdir(notesRoot, { recursive: true });
-  await fs.mkdir(plansRoot, { recursive: true });
-  await fs.mkdir(reportsRoot, { recursive: true });
 }
 
 async function readText(filePath, fallback = '') {
@@ -183,9 +204,13 @@ async function writeJsonAtomic(filePath, value) {
   await writeTextAtomic(filePath, `${JSON.stringify(value, null, 2)}\n`);
 }
 
-async function appendJsonl(filePath, value) {
+async function appendText(filePath, content) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.appendFile(filePath, `${JSON.stringify(value)}\n`, 'utf8');
+  await fs.appendFile(filePath, content, 'utf8');
+}
+
+async function appendJsonl(filePath, value) {
+  await appendText(filePath, `${JSON.stringify(value)}\n`);
 }
 
 async function removeIfExists(filePath) {
@@ -196,8 +221,19 @@ async function removeIfExists(filePath) {
   }
 }
 
-function createMiniSearch() {
-  return new MiniSearch(searchOptions);
+async function logWorker(message, payload = null) {
+  const line = `[${isoNow()}] ${message}${payload ? ` ${JSON.stringify(payload)}` : ''}\n`;
+  await appendText(workerLogFile, line);
+}
+
+async function ensureDirs() {
+  await fs.mkdir(kavionRoot, { recursive: true });
+  await fs.mkdir(indexRoot, { recursive: true });
+  await fs.mkdir(notesRoot, { recursive: true });
+  await fs.mkdir(plansRoot, { recursive: true });
+  await fs.mkdir(reportsRoot, { recursive: true });
+  await fs.mkdir(historyRoot, { recursive: true });
+  await fs.mkdir(geminiRoot, { recursive: true });
 }
 
 function defaultProjectContent() {
@@ -215,8 +251,8 @@ function defaultProjectContent() {
 - Data stores:
 
 ## Conventions
-- Commands live in the repo, not here.
-- Keep this file short and update only when repo-wide truths change.
+- Keep this file short and repo-level.
+- Put active workflow state in the worker-backed session, not here.
 `;
 }
 
@@ -234,28 +270,22 @@ function defaultCurrentContent() {
 `;
 }
 
-function defaultSession() {
+function defaultRenderedSession() {
   return {
+    session_id: '',
+    task_id: '',
     task: '',
     slug: '',
-    workflow: 'standard',
+    task_class: '',
     phase: 'idle',
     status: 'idle',
-    active_agent: '',
-    blockers: 'none',
     next_step: '',
-    verification: '',
-    files_touched: [],
+    blocker: 'none',
     agents_used: [],
-    gate_cache: {},
-    started_at: isoNow(),
-    last_update: isoNow(),
-    updated_at: isoNow(),
+    files_touched: [],
+    recent_events: [],
+    updated_at: '',
   };
-}
-
-function defaultGatesConfig() {
-  return structuredClone(defaultGateConfig);
 }
 
 async function detectTestCommand() {
@@ -278,22 +308,365 @@ async function detectSecurityCommand() {
   return null;
 }
 
-async function ensureInitialFiles() {
+async function ensureStaticFiles() {
   await ensureDirs();
-
   if (!(await exists(projectFile))) await writeTextAtomic(projectFile, defaultProjectContent());
   if (!(await exists(decisionsFile))) await writeTextAtomic(decisionsFile, defaultDecisionsContent());
   if (!(await exists(decisionsArchiveFile))) await writeTextAtomic(decisionsArchiveFile, '# Decisions Archive\n\n');
   if (!(await exists(currentFile))) await writeTextAtomic(currentFile, defaultCurrentContent());
-  if (!(await exists(sessionFile))) await writeJsonAtomic(sessionFile, defaultSession());
-  if (!(await exists(historyFile))) await writeTextAtomic(historyFile, '');
-
+  if (!(await exists(sessionFile))) await writeJsonAtomic(sessionFile, defaultRenderedSession());
   if (!(await exists(gatesFile))) {
-    const config = defaultGatesConfig();
+    const config = structuredClone(defaultGateConfig);
     config.test.command = await detectTestCommand();
     config.security.command = await detectSecurityCommand();
     await writeTextAtomic(gatesFile, YAML.stringify(config));
   }
+}
+
+function openDb() {
+  if (dbHandle) return dbHandle;
+  dbHandle = new DatabaseSync(stateDbFile);
+  dbHandle.exec(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA synchronous = NORMAL;
+    PRAGMA foreign_keys = ON;
+    PRAGMA busy_timeout = 2000;
+
+    CREATE TABLE IF NOT EXISTS tasks (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      class TEXT NOT NULL CHECK(class IN ('trivial','medium','debug')),
+      status TEXT NOT NULL CHECK(status IN ('open','done','abandoned')) DEFAULT 'open',
+      created_at INTEGER NOT NULL,
+      closed_at INTEGER,
+      requires_followup INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL REFERENCES tasks(id),
+      phase TEXT NOT NULL CHECK(phase IN ('init','plan','code','test','review','ship','closed')),
+      status TEXT NOT NULL CHECK(status IN ('active','paused','closed')) DEFAULT 'active',
+      next_step TEXT,
+      blocker TEXT,
+      opened_at INTEGER NOT NULL,
+      closed_at INTEGER,
+      last_event_id INTEGER NOT NULL DEFAULT 0,
+      gemini_session_id TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_sessions_task ON sessions(task_id);
+    CREATE INDEX IF NOT EXISTS idx_sessions_active ON sessions(status);
+
+    CREATE TABLE IF NOT EXISTS events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL REFERENCES sessions(id),
+      ts INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      source TEXT NOT NULL CHECK(source IN ('hook','tool','reconciler','user')),
+      agent TEXT,
+      payload_json TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id, id);
+    CREATE INDEX IF NOT EXISTS idx_events_kind ON events(kind);
+
+    CREATE TABLE IF NOT EXISTS delegations (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL REFERENCES sessions(id),
+      agent TEXT NOT NULL,
+      spawned_at INTEGER NOT NULL,
+      completed_at INTEGER,
+      status TEXT NOT NULL CHECK(status IN ('spawned','completed','failed','needs_context')),
+      inputs_json TEXT NOT NULL,
+      outputs_json TEXT,
+      error TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_delegations_session ON delegations(session_id);
+
+    CREATE TABLE IF NOT EXISTS artifacts (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL REFERENCES sessions(id),
+      kind TEXT NOT NULL CHECK(kind IN ('plan','report:review','report:qa','report:security','note')),
+      payload_json TEXT NOT NULL,
+      file_path TEXT,
+      file_sha256 TEXT,
+      created_at INTEGER NOT NULL,
+      superseded_by TEXT REFERENCES artifacts(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_artifacts_session_kind ON artifacts(session_id, kind);
+
+    CREATE TABLE IF NOT EXISTS gate_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL REFERENCES sessions(id),
+      name TEXT NOT NULL,
+      passed INTEGER NOT NULL,
+      exit_code INTEGER,
+      stdout_sha256 TEXT,
+      stdout_preview TEXT,
+      ran_at INTEGER NOT NULL,
+      ttl_seconds INTEGER NOT NULL DEFAULT 1800
+    );
+    CREATE INDEX IF NOT EXISTS idx_gate_runs_session_name ON gate_runs(session_id, name);
+
+    CREATE TABLE IF NOT EXISTS render_jobs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      target_path TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('pending','done','failed')) DEFAULT 'pending',
+      error TEXT,
+      enqueued_at INTEGER NOT NULL,
+      completed_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_render_jobs_pending ON render_jobs(status, id);
+
+    CREATE TABLE IF NOT EXISTS meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+    INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', '1');
+    INSERT OR IGNORE INTO meta(key, value) VALUES ('hook_failures', '0');
+  `);
+  return dbHandle;
+}
+
+function getDb() {
+  return openDb();
+}
+
+function tx(run) {
+  const db = getDb();
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const result = run(db);
+    db.exec('COMMIT');
+    return result;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+}
+
+function statement(sql) {
+  return getDb().prepare(sql);
+}
+
+function classifyTask(task) {
+  const text = String(task || '').toLowerCase();
+  if (!text.trim()) return 'medium';
+  if (text.length < 80 && !/\b(implement|refactor|design|architect|workflow|memory)\b/.test(text)) {
+    return 'trivial';
+  }
+  if (/\b(prod|broken|down|hotfix|urgent|bug|crash|error|debug)\b/.test(text)) {
+    return 'debug';
+  }
+  return 'medium';
+}
+
+function currentGeminiSessionId() {
+  return process.env.GEMINI_SESSION_ID || '';
+}
+
+function activeSessionRow() {
+  return statement(`
+    SELECT
+      s.id AS session_id,
+      t.id AS task_id,
+      t.title AS task,
+      t.class AS task_class,
+      t.status AS task_status,
+      s.phase,
+      s.status,
+      s.next_step,
+      s.blocker,
+      s.opened_at,
+      s.closed_at,
+      s.last_event_id,
+      s.gemini_session_id
+    FROM sessions s
+    JOIN tasks t ON t.id = s.task_id
+    WHERE s.status = 'active'
+    ORDER BY s.opened_at DESC
+    LIMIT 1
+  `).get();
+}
+
+function sessionById(sessionId) {
+  return statement(`
+    SELECT
+      s.id AS session_id,
+      t.id AS task_id,
+      t.title AS task,
+      t.class AS task_class,
+      t.status AS task_status,
+      s.phase,
+      s.status,
+      s.next_step,
+      s.blocker,
+      s.opened_at,
+      s.closed_at,
+      s.last_event_id,
+      s.gemini_session_id
+    FROM sessions s
+    JOIN tasks t ON t.id = s.task_id
+    WHERE s.id = ?
+    LIMIT 1
+  `).get(sessionId);
+}
+
+function recentEvents(sessionId, limit = 5) {
+  return statement(`
+    SELECT id, ts, kind, source, agent, payload_json
+    FROM events
+    WHERE session_id = ?
+    ORDER BY id DESC
+    LIMIT ?
+  `)
+    .all(sessionId, limit)
+    .reverse()
+    .map((row) => ({
+      id: row.id,
+      ts: row.ts,
+      kind: row.kind,
+      source: row.source,
+      agent: row.agent || '',
+      payload: parseJson(row.payload_json, {}),
+    }));
+}
+
+function sessionFilesTouched(sessionId) {
+  const rows = statement(`
+    SELECT DISTINCT json_extract(payload_json, '$.path') AS path
+    FROM events
+    WHERE session_id = ?
+      AND kind = 'file_touched'
+      AND json_extract(payload_json, '$.path') IS NOT NULL
+  `).all(sessionId);
+  return rows.map((row) => row.path).filter(Boolean).sort();
+}
+
+function sessionAgentsUsed(sessionId) {
+  const rows = statement(`
+    SELECT DISTINCT COALESCE(agent, json_extract(payload_json, '$.agent')) AS agent_name
+    FROM events
+    WHERE session_id = ?
+      AND COALESCE(agent, json_extract(payload_json, '$.agent')) IS NOT NULL
+  `).all(sessionId);
+  return rows.map((row) => row.agent_name).filter(Boolean).sort();
+}
+
+function appendEvent(sessionId, kind, payload = {}, { source = 'tool', agent = 'main' } = {}) {
+  const ts = nowMs();
+  const result = statement(`
+    INSERT INTO events(session_id, ts, kind, source, agent, payload_json)
+    VALUES(?, ?, ?, ?, ?, ?)
+  `).run(sessionId, ts, kind, source, agent, safeJson(payload));
+  statement('UPDATE sessions SET last_event_id = ? WHERE id = ?').run(Number(result.lastInsertRowid), sessionId);
+  return Number(result.lastInsertRowid);
+}
+
+function enqueueRender(targetPath, reason) {
+  statement(`
+    INSERT INTO render_jobs(target_path, reason, status, enqueued_at)
+    VALUES(?, ?, 'pending', ?)
+  `).run(targetPath, reason, nowMs());
+}
+
+function historyMarkdown(session, events) {
+  return `# Session History
+
+- Task: ${session.task}
+- Class: ${session.task_class}
+- Phase: ${session.phase}
+- Status: ${session.status}
+- Opened: ${isoNow(session.opened_at)}
+- Closed: ${session.closed_at ? isoNow(session.closed_at) : ''}
+
+## Next Step
+${session.next_step || ''}
+
+## Blocker
+${session.blocker || 'none'}
+
+## Recent Events
+${events.length ? events.map((event) => `- ${isoNow(event.ts)} ${event.kind}${event.agent ? ` (${event.agent})` : ''}`).join('\n') : '- none'}
+`;
+}
+
+async function renderSessionViews() {
+  await ensureStaticFiles();
+  const session = activeSessionRow();
+  if (!session) {
+    await writeTextAtomic(currentFile, defaultCurrentContent());
+    await writeJsonAtomic(sessionFile, defaultRenderedSession());
+    return {
+      ok: true,
+      active: false,
+      current_file: rel(currentFile),
+      session_file: rel(sessionFile),
+    };
+  }
+
+  const events = recentEvents(session.session_id, 5);
+  const filesTouched = sessionFilesTouched(session.session_id);
+  const agentsUsed = sessionAgentsUsed(session.session_id);
+  const renderedSession = {
+    session_id: session.session_id,
+    task_id: session.task_id,
+    task: session.task,
+    slug: slugify(session.task),
+    task_class: session.task_class,
+    phase: session.phase,
+    status: session.status,
+    next_step: session.next_step || '',
+    blocker: session.blocker || 'none',
+    workflow: session.task_class === 'trivial' ? 'express' : 'standard',
+    active_agent: agentsUsed.at(-1) || '',
+    agents_used: agentsUsed,
+    files_touched: filesTouched,
+    recent_events: events.map((event) => ({
+      id: event.id,
+      kind: event.kind,
+      agent: event.agent,
+      timestamp: isoNow(event.ts),
+    })),
+    opened_at: isoNow(session.opened_at),
+    updated_at: events.length ? isoNow(events.at(-1).ts) : isoNow(session.opened_at),
+  };
+
+  const summaryLines = [
+    '# Current Work',
+    '',
+    `- Active task: ${session.task}`,
+    `- Class: ${session.task_class}`,
+    `- Phase: ${session.phase}`,
+    `- Status: ${session.status}`,
+    `- Next step: ${session.next_step || ''}`,
+    `- Blockers: ${session.blocker || 'none'}`,
+    agentsUsed.length ? `- Agents used: ${agentsUsed.join(', ')}` : '- Agents used:',
+    filesTouched.length ? `- Files touched: ${filesTouched.join(', ')}` : '- Files touched:',
+  ];
+
+  if (events.length) {
+    summaryLines.push('', '## Recent Events');
+    for (const event of events) {
+      summaryLines.push(`- ${isoNow(event.ts)} ${event.kind}${event.agent ? ` (${event.agent})` : ''}`);
+    }
+  }
+
+  await writeTextAtomic(currentFile, `${summaryLines.slice(0, maxCurrentLines).join('\n')}\n`);
+  await writeJsonAtomic(sessionFile, renderedSession);
+
+  if (session.status === 'closed' || session.phase === 'closed') {
+    const historyPath = path.join(historyRoot, `${slugify(session.task)}-${session.session_id}.md`);
+    await writeTextAtomic(historyPath, `${historyMarkdown(session, events).trim()}\n`);
+  }
+
+  return {
+    ok: true,
+    active: true,
+    session: renderedSession,
+    current_file: rel(currentFile),
+    session_file: rel(sessionFile),
+  };
 }
 
 async function touchDirtyIndex() {
@@ -301,274 +674,279 @@ async function touchDirtyIndex() {
   await writeTextAtomic(dirtyFile, `${isoNow()}\n`);
 }
 
-function splitLongChunk(text, maxChars = 1500) {
-  const paragraphs = normalizeWhitespace(text).split('\n\n').filter(Boolean);
-  const result = [];
-  let current = '';
-
-  for (const paragraph of paragraphs) {
-    if (!current) {
-      current = paragraph;
-      continue;
-    }
-    if ((current.length + 2 + paragraph.length) <= maxChars) {
-      current = `${current}\n\n${paragraph}`;
-      continue;
-    }
-    result.push(current);
-    current = paragraph;
-  }
-
-  if (current) result.push(current);
-  return result.length ? result : [normalizeWhitespace(text)];
-}
-
-function markdownChunks(content) {
-  const rawLines = String(content || '').replace(/\r\n/g, '\n').split('\n');
-  const chunks = [];
-  const stack = [];
-  let body = [];
-
-  const flush = () => {
-    const text = normalizeWhitespace(body.join('\n'));
-    if (!text) {
-      body = [];
-      return;
-    }
-    const headingPath = stack.map((item) => item.text).join(' > ') || 'Document';
-    for (const part of splitLongChunk(text)) {
-      chunks.push({ heading_path: headingPath, text: part });
-    }
-    body = [];
+function fallbackHookError(reason) {
+  return {
+    decision: 'allow',
+    systemMessage: `Kavion hook warning: ${reason}`,
   };
-
-  for (const line of rawLines) {
-    const match = line.match(/^(#{1,3})\s+(.*)$/);
-    if (match) {
-      flush();
-      const level = match[1].length;
-      const text = match[2].trim();
-      while (stack.length >= level) stack.pop();
-      stack.push({ level, text });
-      continue;
-    }
-    body.push(line);
-  }
-  flush();
-
-  return chunks.length ? chunks : [{ heading_path: 'Document', text: normalizeWhitespace(content) }];
 }
 
-function inferType(filePath) {
-  const relative = rootRel(filePath);
-  const normalized = relative.replace(/^\.gemini\/kavion\//, '.kavion/');
-  if (normalized === '.kavion/PROJECT.md') return 'project';
-  if (normalized === '.kavion/DECISIONS.md' || normalized === '.kavion/DECISIONS-archive.md') return 'decisions';
-  if (normalized === '.kavion/CURRENT.md') return 'current';
-  if (normalized === '.kavion/session.json' || normalized === '.kavion/history.jsonl') return 'session';
-  if (normalized.startsWith('.kavion/plans/')) return 'plan';
-  if (normalized.startsWith('.kavion/reports/')) return 'report';
-  if (normalized.startsWith('.kavion/notes/')) return 'note';
-  if (normalized.startsWith('.gemini/context/')) return 'legacy-context';
-  if (normalized.startsWith('.gemini/archive/')) return 'legacy-archive';
-  if (relative.includes('/sessions/')) return 'legacy-session';
-  return 'memory';
+async function recordFallbackEvent(kind, payload) {
+  await appendJsonl(fallbackEventsFile, {
+    ts: isoNow(),
+    kind,
+    payload,
+  });
 }
 
-function shouldIndex(filePath) {
-  const relative = rootRel(filePath);
-  const normalized = relative.replace(/^\.gemini\/kavion\//, '.kavion/');
-  if (normalized.startsWith('.kavion/index/')) return false;
-  if (normalized.startsWith('.kavion/node_modules/')) return false;
-  if (path.basename(filePath).startsWith('.env')) return false;
-  return filePath.endsWith('.md') || filePath.endsWith('.json') || filePath.endsWith('.jsonl');
+async function ensureWorkspaceInitialized() {
+  await ensureStaticFiles();
+  getDb();
+  await renderSessionViews();
 }
 
-async function walk(dirPath) {
-  try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
-    const files = [];
-    for (const entry of entries) {
-      const child = path.join(dirPath, entry.name);
-      if (entry.isDirectory()) files.push(...(await walk(child)));
-      if (entry.isFile() && shouldIndex(child)) files.push(child);
-    }
-    return files;
-  } catch {
-    return [];
-  }
-}
+async function installGeminiHookSettings() {
+  await ensureDirs();
+  const settings = (await readJson(projectGeminiSettingsFile, {})) || {};
+  const hookCommand = (eventName) => `node "${modulePath}" hook ${eventName}`;
+  const currentHooks = settings.hooks && typeof settings.hooks === 'object' ? settings.hooks : {};
 
-async function collectMemoryFiles() {
-  const files = [
-    projectFile,
-    decisionsFile,
-    decisionsArchiveFile,
-    currentFile,
-    sessionFile,
-    historyFile,
-    gatesFile,
-    ...(await walk(plansRoot)),
-    ...(await walk(reportsRoot)),
-    ...(await walk(notesRoot)),
-  ];
-
-  // Backward compatibility during migration.
-  if (await exists(legacyGeminiKavionRoot)) files.push(...(await walk(legacyGeminiKavionRoot)));
-  if (await exists(legacyContextRoot)) files.push(...(await walk(legacyContextRoot)));
-  if (await exists(legacyArchiveRoot)) files.push(...(await walk(legacyArchiveRoot)));
-  if (await exists(legacySessionsRoot)) files.push(...(await walk(legacySessionsRoot)));
-
-  return uniq(files).sort();
-}
-
-async function readChunkableContent(filePath) {
-  if (filePath.endsWith('.json')) {
-    return JSON.stringify(await readJson(filePath, {}), null, 2);
-  }
-  if (filePath.endsWith('.jsonl')) {
-    return (await readJsonl(filePath)).map((item) => JSON.stringify(item, null, 2)).join('\n\n');
-  }
-  return readText(filePath);
-}
-
-async function buildIndex() {
-  await ensureInitialFiles();
-  const files = await collectMemoryFiles();
-  const index = createMiniSearch();
-  const chunks = [];
-
-  for (const filePath of files) {
-    const content = await readChunkableContent(filePath);
-    const stat = await fs.stat(filePath).catch(() => null);
-    if (!normalizeWhitespace(content)) continue;
-
-    for (const chunk of markdownChunks(content)) {
-      if (!normalizeWhitespace(chunk.text)) continue;
-      const record = {
-        id: sha1(`${rel(filePath)}:${chunk.heading_path}:${chunk.text}`).slice(0, 8),
-        path: rootRel(filePath),
-        heading_path: chunk.heading_path,
-        text: chunk.text,
-        tokens: tokenize(chunk.text).length,
-        updated: stat?.mtime?.toISOString() || isoNow(),
-        type: inferType(filePath),
-      };
-      chunks.push(record);
-    }
+  function upsertHook(eventName, matcher, name, command) {
+    const current = Array.isArray(currentHooks[eventName]) ? currentHooks[eventName] : [];
+    const withoutSame = current.filter((entry) => {
+      const hooks = Array.isArray(entry?.hooks) ? entry.hooks : [];
+      return !hooks.some((hook) => hook?.name === name);
+    });
+    withoutSame.push({
+      matcher,
+      hooks: [
+        {
+          type: 'command',
+          name,
+          command,
+        },
+      ],
+    });
+    currentHooks[eventName] = withoutSame;
   }
 
-  index.addAll(chunks);
-  await writeTextAtomic(chunksFile, chunks.map((chunk) => JSON.stringify(chunk)).join('\n') + (chunks.length ? '\n' : ''));
-  await writeJsonAtomic(miniSearchFile, index.toJSON());
-  await removeIfExists(dirtyFile);
+  upsertHook('SessionStart', 'startup', 'kavion-session-start', hookCommand('session-start'));
+  upsertHook('SessionStart', 'resume', 'kavion-session-start-resume', hookCommand('session-start'));
+  upsertHook('BeforeAgent', '*', 'kavion-before-agent', hookCommand('before-agent'));
+  upsertHook('AfterTool', '.*', 'kavion-after-tool', hookCommand('after-tool'));
 
+  settings.hooks = currentHooks;
+  await writeJsonAtomic(projectGeminiSettingsFile, settings);
+  return rel(projectGeminiSettingsFile);
+}
+
+async function initializeWorkspace() {
+  await ensureWorkspaceInitialized();
+  const hooksFile = await installGeminiHookSettings();
+  await touchDirtyIndex();
+  const index = await buildIndex();
   return {
     ok: true,
-    root: rel(indexRoot),
-    files: files.length,
-    chunks: chunks.length,
-    backend: 'bm25',
-    dirty: false,
+    root: rel(kavionRoot),
+    state_db: rel(stateDbFile),
+    hook_settings: hooksFile,
+    files: [
+      rel(projectFile),
+      rel(decisionsFile),
+      rel(decisionsArchiveFile),
+      rel(currentFile),
+      rel(sessionFile),
+      rel(gatesFile),
+      rel(notesRoot),
+      rel(plansRoot),
+      rel(reportsRoot),
+      rel(historyRoot),
+      rel(indexRoot),
+    ],
+    index,
   };
 }
 
-async function loadIndex() {
-  const missing = !(await exists(chunksFile)) || !(await exists(miniSearchFile));
-  const dirty = await exists(dirtyFile);
-  if (missing || dirty) {
-    await buildIndex();
-  }
-
-  const chunks = await readJsonl(chunksFile);
-  const miniSearchJson = await readJson(miniSearchFile, null);
-  const index = miniSearchJson ? MiniSearch.loadJSON(miniSearchJson, searchOptions) : createMiniSearch();
-  const chunkMap = new Map(chunks.map((chunk) => [chunk.id, chunk]));
-  return { chunks, chunkMap, index, dirty: Boolean(dirty) };
+function createTaskAndSession(taskTitle, taskClass = classifyTask(taskTitle)) {
+  const taskId = makeId('task');
+  const sessionId = makeId('session');
+  const ts = nowMs();
+  statement(`
+    INSERT INTO tasks(id, title, class, status, created_at)
+    VALUES(?, ?, ?, 'open', ?)
+  `).run(taskId, taskTitle, taskClass, ts);
+  statement(`
+    INSERT INTO sessions(id, task_id, phase, status, next_step, blocker, opened_at, gemini_session_id)
+    VALUES(?, ?, 'init', 'active', ?, 'none', ?, ?)
+  `).run(sessionId, taskId, taskClass === 'trivial' ? 'Apply the requested change.' : 'Create a plan before implementation.', ts, currentGeminiSessionId());
+  appendEvent(sessionId, 'session_started', { task: taskTitle, task_class: taskClass }, { source: 'tool', agent: 'main' });
+  return sessionById(sessionId);
 }
 
-async function searchIndex({ query, top_k = 5 }) {
-  const { chunkMap, index } = await loadIndex();
-  const results = index.search(query, searchOptions.searchOptions).slice(0, top_k).map((result) => {
-    const chunk = chunkMap.get(result.id);
-    return {
-      id: result.id,
-      path: chunk?.path || result.path,
-      heading_path: chunk?.heading_path || result.heading_path || 'Document',
-      type: chunk?.type || result.type || 'memory',
-      score: Number(result.score.toFixed(4)),
-      snippet: String(chunk?.text || '').slice(0, 220),
-      updated: chunk?.updated || result.updated || null,
-    };
+async function sessionStart({ task = '', agent = 'main', force_new = false } = {}) {
+  await ensureWorkspaceInitialized();
+  const title = normalizeWhitespace(task);
+  let session;
+
+  tx(() => {
+    const current = activeSessionRow();
+    if (!force_new && current && (!title || current.task === title)) {
+      session = current;
+      appendEvent(current.session_id, 'session_resumed', { task: current.task }, { source: 'tool', agent });
+      statement('UPDATE sessions SET gemini_session_id = ? WHERE id = ?').run(currentGeminiSessionId(), current.session_id);
+      return;
+    }
+
+    if (current && title && current.task !== title) {
+      statement(`
+        UPDATE sessions
+        SET status = 'paused', blocker = COALESCE(blocker, 'Paused for new task.')
+        WHERE id = ?
+      `).run(current.session_id);
+      appendEvent(current.session_id, 'session_paused', { reason: 'new_task_started', next_task: title }, { source: 'tool', agent });
+    }
+
+    session = createTaskAndSession(title || current?.task || 'Untitled task');
   });
 
+  await renderSessionViews();
+  await touchDirtyIndex();
   return {
-    query,
-    backend: 'bm25',
-    results,
+    ok: true,
+    session,
+    rendered: rel(sessionFile),
   };
 }
 
-async function readChunk(id) {
-  const { chunkMap } = await loadIndex();
-  return chunkMap.get(id) || null;
+const phaseOrder = ['init', 'plan', 'code', 'test', 'review', 'ship', 'closed'];
+
+async function hasPlanArtifact(sessionId) {
+  const row = statement(`
+    SELECT id FROM artifacts
+    WHERE session_id = ? AND kind = 'plan' AND superseded_by IS NULL
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).get(sessionId);
+  return Boolean(row);
 }
 
-async function getSession() {
-  await ensureInitialFiles();
-  const session = await readJson(sessionFile, null);
-  return session && typeof session === 'object' ? { ...defaultSession(), ...session } : defaultSession();
-}
+async function sessionTransition({ to_phase, next_step = '', blocker = '' } = {}) {
+  await ensureWorkspaceInitialized();
+  const active = activeSessionRow();
+  if (!active) {
+    return { ok: false, reason: 'NO_SESSION', next_step: 'Call kavion_session_start first.' };
+  }
+  const target = String(to_phase || '').trim();
+  if (!phaseOrder.includes(target)) {
+    return { ok: false, reason: `Unknown phase: ${target}` };
+  }
+  if (target === 'code' && active.task_class !== 'trivial' && !(await hasPlanArtifact(active.session_id))) {
+    return {
+      ok: false,
+      reason: 'PLAN_REQUIRED',
+      missing_criteria: ['plan_required_for_code_phase'],
+      next_step: 'Create a plan with kavion_plan_create before entering code phase.',
+    };
+  }
 
-async function writeSession(patch) {
-  const current = await getSession();
-  const next = {
-    ...current,
-    ...patch,
-    files_touched: uniq([...(current.files_touched || []), ...((patch.files_touched || []).filter(Boolean))]),
-    agents_used: uniq([...(current.agents_used || []), ...((patch.agents_used || []).filter(Boolean))]),
-    gate_cache: { ...(current.gate_cache || {}), ...(patch.gate_cache || {}) },
-    started_at: current.started_at || patch.started_at || isoNow(),
-    last_update: isoNow(),
-    updated_at: isoNow(),
+  tx(() => {
+    statement(`
+      UPDATE sessions
+      SET phase = ?, next_step = ?, blocker = ?, status = CASE WHEN ? = 'closed' THEN 'closed' ELSE status END,
+          closed_at = CASE WHEN ? = 'closed' THEN ? ELSE closed_at END
+      WHERE id = ?
+    `).run(
+      target,
+      next_step || active.next_step || '',
+      blocker || active.blocker || 'none',
+      target,
+      target,
+      target === 'closed' ? nowMs() : null,
+      active.session_id,
+    );
+    appendEvent(active.session_id, 'phase_transition', { from_phase: active.phase, to_phase: target }, { source: 'tool', agent: 'main' });
+  });
+
+  await renderSessionViews();
+  await touchDirtyIndex();
+  return {
+    ok: true,
+    session: sessionById(active.session_id),
   };
-  await writeJsonAtomic(sessionFile, next);
+}
+
+async function updateSessionCompat(payload = {}) {
+  await ensureWorkspaceInitialized();
+  let active = activeSessionRow();
+  if (!active && payload.task) {
+    await sessionStart({ task: payload.task, agent: payload.active_agent || 'main' });
+    active = activeSessionRow();
+  }
+  if (!active) {
+    return { ok: false, reason: 'NO_SESSION', next_step: 'Call kavion_session_start first.' };
+  }
+
+  if (payload.phase && payload.phase !== active.phase) {
+    const transitioned = await sessionTransition({
+      to_phase: payload.phase,
+      next_step: payload.next_step || active.next_step || '',
+      blocker: payload.blockers || payload.blocker || active.blocker || 'none',
+    });
+    if (!transitioned.ok) return transitioned;
+    active = activeSessionRow();
+  }
+
+  tx(() => {
+    if (payload.next_step || payload.blockers || payload.blocker || payload.status) {
+      statement(`
+        UPDATE sessions
+        SET next_step = COALESCE(?, next_step),
+            blocker = COALESCE(?, blocker),
+            status = CASE WHEN ? IS NULL OR ? = '' THEN status ELSE ? END
+        WHERE id = ?
+      `).run(
+        payload.next_step || null,
+        payload.blockers || payload.blocker || null,
+        payload.status || null,
+        payload.status || '',
+        payload.status || '',
+        active.session_id,
+      );
+      appendEvent(active.session_id, 'session_updated', {
+        next_step: payload.next_step || undefined,
+        blocker: payload.blockers || payload.blocker || undefined,
+        status: payload.status || undefined,
+      }, { source: 'tool', agent: payload.active_agent || 'main' });
+    }
+
+    for (const agentName of uniq([payload.active_agent, ...(payload.agents_used || [])])) {
+      appendEvent(active.session_id, 'agent_used', { agent: agentName }, { source: 'tool', agent: agentName || 'main' });
+    }
+
+    for (const filePath of uniq(payload.files_touched || [])) {
+      appendEvent(active.session_id, 'file_touched', { path: filePath }, { source: 'tool', agent: payload.active_agent || 'main' });
+    }
+  });
+
+  await renderSessionViews();
   await touchDirtyIndex();
-  return next;
+  return {
+    ok: true,
+    session: sessionById(active.session_id),
+  };
 }
 
-async function writeCurrent({
-  active_task = '',
-  status = '',
-  next_step = '',
-  blockers = 'none',
-  summary = '',
-} = {}) {
-  await ensureInitialFiles();
+function planMarkdown({ title, goal, acceptance_criteria, steps, files, risks }) {
+  return `# Plan: ${title}
 
-  const body = `# Current Work
+## Goal
+${goal || 'TBD'}
 
-- Active task: ${active_task || 'none'}
-- Status: ${status || 'idle'}
-- Next step: ${next_step || ''}
-- Blockers: ${blockers || 'none'}
-${summary ? `\n## Summary\n${normalizeWhitespace(summary)}\n` : ''}`;
+## Acceptance Criteria
+${acceptance_criteria.length ? acceptance_criteria.map((item) => `- ${item}`).join('\n') : '- TBD'}
 
-  const trimmed = lines(body).slice(0, maxCurrentLines).join('\n');
-  await writeTextAtomic(currentFile, `${trimmed}\n`);
-  await touchDirtyIndex();
-  return { ok: true, file: rel(currentFile) };
+## Steps
+${steps.length ? steps.map((step, index) => `${index + 1}. ${step}`).join('\n') : '1. Inspect the relevant code.\n2. Implement the change.\n3. Verify the result.'}
+
+## Files
+${files.length ? files.map((item) => `- ${item}`).join('\n') : '- TBD'}
+
+## Risks
+${risks.length ? risks.map((item) => `- ${item}`).join('\n') : '- none'}
+`;
 }
 
-function bulletList(items) {
-  return (items || [])
-    .map((item) => String(item || '').trim())
-    .filter(Boolean)
-    .map((item) => `- ${item}`)
-    .join('\n');
-}
-
-async function writePlan({
+async function planCreate({
   slug,
   title = '',
   goal = '',
@@ -577,33 +955,57 @@ async function writePlan({
   files = [],
   risks = [],
 } = {}) {
-  await ensureDirs();
-  const safeSlug = slugify(slug || title || goal);
-  const filePath = path.join(plansRoot, `plan-${safeSlug}.md`);
-  const body = `# Plan: ${title || safeSlug}
-
-## Goal
-${normalizeWhitespace(goal) || 'TBD'}
-
-## Acceptance Criteria
-${bulletList(acceptance_criteria) || '- TBD'}
-
-## Steps
-${steps.length ? steps.map((step, index) => `${index + 1}. ${String(step).trim()}`).join('\n') : '1. Inspect the relevant code.\n2. Implement the change.\n3. Verify the result.'}
-
-## Files
-${bulletList(files) || '- TBD'}
-
-## Risks
-${bulletList(risks) || '- none'}
-`;
+  await ensureWorkspaceInitialized();
+  const active = activeSessionRow();
+  if (!active) {
+    return { ok: false, reason: 'NO_SESSION', next_step: 'Call kavion_session_start first.' };
+  }
+  const planSlug = slugify(slug || title || active.task);
+  const planTitle = title || active.task;
+  const filePath = path.join(plansRoot, `plan-${planSlug}.md`);
+  const body = planMarkdown({
+    title: planTitle,
+    goal: normalizeWhitespace(goal),
+    acceptance_criteria: acceptance_criteria.map((item) => String(item).trim()).filter(Boolean),
+    steps: steps.map((item) => String(item).trim()).filter(Boolean),
+    files: files.map((item) => String(item).trim()).filter(Boolean),
+    risks: risks.map((item) => String(item).trim()).filter(Boolean),
+  });
   await writeTextAtomic(filePath, `${body.trim()}\n`);
+  const fileContent = await readText(filePath);
+  tx(() => {
+    const artifactId = makeId('artifact');
+    statement(`
+      INSERT INTO artifacts(id, session_id, kind, payload_json, file_path, file_sha256, created_at)
+      VALUES(?, ?, 'plan', ?, ?, ?, ?)
+    `).run(
+      artifactId,
+      active.session_id,
+      safeJson({ title: planTitle, goal, acceptance_criteria, steps, files, risks }),
+      rel(filePath),
+      sha256(fileContent),
+      nowMs(),
+    );
+    appendEvent(active.session_id, 'artifact_created', { kind: 'plan', path: rel(filePath) }, { source: 'tool', agent: 'planner' });
+    statement(`UPDATE sessions SET phase = 'plan', next_step = ? WHERE id = ?`).run('Start implementation after planning.', active.session_id);
+  });
+  await renderSessionViews();
   await touchDirtyIndex();
-  return { ok: true, file: rel(filePath), slug: safeSlug };
+  return {
+    ok: true,
+    file: rel(filePath),
+    slug: planSlug,
+    session: sessionById(active.session_id),
+  };
 }
 
-async function writeStructuredReport({
-  slug,
+function reportFilename(session, kind) {
+  const slug = slugify(session.task);
+  const suffix = kind.replace(/^report:/, '');
+  return `${slug}-${suffix}.md`;
+}
+
+async function reportCreate({
   kind,
   title = '',
   result = '',
@@ -614,11 +1016,18 @@ async function writeStructuredReport({
   issues = [],
   verified = [],
 } = {}) {
-  await ensureDirs();
-  const safeSlug = slugify(slug || title || kind);
-  const safeKind = slugify(kind || 'report');
-  const filePath = path.join(reportsRoot, `${safeSlug}-${safeKind}.md`);
-  const body = `# Report: ${title || `${safeSlug} - ${safeKind}`}
+  await ensureWorkspaceInitialized();
+  const active = activeSessionRow();
+  if (!active) {
+    return { ok: false, reason: 'NO_SESSION', next_step: 'Call kavion_session_start first.' };
+  }
+  const normalizedKind = String(kind || '').trim();
+  if (!['report:qa', 'report:review', 'report:security'].includes(normalizedKind)) {
+    return { ok: false, reason: `Unsupported report kind: ${normalizedKind}` };
+  }
+
+  const filePath = path.join(reportsRoot, reportFilename(active, normalizedKind));
+  const body = `# Report: ${title || `${active.task} - ${normalizedKind.replace(/^report:/, '')}`}
 
 **Timestamp:** ${isoNow()}
 **Result:** ${result || 'unknown'}
@@ -627,243 +1036,137 @@ async function writeStructuredReport({
 ${normalizeWhitespace(summary) || 'No summary provided.'}
 
 ## Evidence
-${bulletList(evidence) || '- none'}
+${evidence.length ? evidence.map((item) => `- ${item}`).join('\n') : '- none'}
 
 ## Files
-${bulletList(files) || '- none'}
+${files.length ? files.map((item) => `- ${item}`).join('\n') : '- none'}
 
 ## Commands
-${bulletList(commands) || '- none'}
+${commands.length ? commands.map((item) => `- ${item}`).join('\n') : '- none'}
 
 ## Issues
-${bulletList(issues) || '- none'}
+${issues.length ? issues.map((item) => `- ${item}`).join('\n') : '- none'}
 
 ## Verified
-${bulletList(verified) || '- none'}
+${verified.length ? verified.map((item) => `- ${item}`).join('\n') : '- none'}
 `;
+
   await writeTextAtomic(filePath, `${body.trim()}\n`);
-  await touchDirtyIndex();
-  return { ok: true, file: rel(filePath), slug: safeSlug, kind: safeKind };
-}
-
-async function archiveSession(reason = 'completed') {
-  const session = await getSession();
-  if (!session.task && !session.slug) {
-    return { ok: false, reason: 'No active session to archive.' };
-  }
-
-  await appendJsonl(historyFile, {
-    ...session,
-    archived_at: isoNow(),
-    archive_reason: reason,
+  const fileContent = await readText(filePath);
+  tx(() => {
+    const artifactId = makeId('artifact');
+    statement(`
+      INSERT INTO artifacts(id, session_id, kind, payload_json, file_path, file_sha256, created_at)
+      VALUES(?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      artifactId,
+      active.session_id,
+      normalizedKind,
+      safeJson({ title, result, summary, evidence, files, commands, issues, verified }),
+      rel(filePath),
+      sha256(fileContent),
+      nowMs(),
+    );
+    appendEvent(active.session_id, 'artifact_created', { kind: normalizedKind, path: rel(filePath) }, { source: 'tool', agent: 'reviewer' });
   });
-  await writeJsonAtomic(sessionFile, defaultSession());
+  await renderSessionViews();
   await touchDirtyIndex();
-
   return {
     ok: true,
-    archived: {
-      task: session.task,
-      slug: session.slug,
-      reason,
-    },
-    history_file: rel(historyFile),
+    file: rel(filePath),
+    session: sessionById(active.session_id),
   };
 }
 
-function parseLegacyField(content, label) {
-  return content.match(new RegExp(`^${label}:\\s*(.*)$`, 'im'))?.[1]?.trim() || '';
-}
-
-async function parseLegacySessions(dirPath) {
-  const names = await fs.readdir(dirPath).catch(() => []);
-  const sessions = [];
-  for (const name of names.filter((item) => item.endsWith('.md')).sort()) {
-    const filePath = path.join(dirPath, name);
-    const content = await readText(filePath);
-    const stat = await fs.stat(filePath).catch(() => null);
-    sessions.push({
-      task: parseLegacyField(content, 'Task'),
-      slug: name.replace(/\.md$/, ''),
-      workflow: parseLegacyField(content, 'Workflow') || 'standard',
-      phase: parseLegacyField(content, 'Current phase') || 'unknown',
-      status: parseLegacyField(content, 'Status') || 'unknown',
-      blockers: parseLegacyField(content, 'Blockers') || 'none',
-      next_step: parseLegacyField(content, 'Next step'),
-      verification: parseLegacyField(content, 'Verification'),
-      agents_used: parseLegacyField(content, 'Agents used')
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean),
-      files_touched: parseLegacyField(content, 'Files touched')
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean),
-      updated_at: parseLegacyField(content, 'Last updated') || stat?.mtime?.toISOString() || isoNow(),
-      legacy_file: rel(filePath),
-    });
-  }
-  return sessions;
-}
-
-async function copyDirectoryContents(sourceDir, targetDir) {
-  const entries = await fs.readdir(sourceDir, { withFileTypes: true }).catch(() => []);
-  await fs.mkdir(targetDir, { recursive: true });
-  for (const entry of entries) {
-    const sourcePath = path.join(sourceDir, entry.name);
-    const targetPath = path.join(targetDir, entry.name);
-    if (entry.isDirectory()) {
-      await copyDirectoryContents(sourcePath, targetPath);
-      continue;
-    }
-    if (entry.isFile()) {
-      await fs.mkdir(path.dirname(targetPath), { recursive: true });
-      await fs.copyFile(sourcePath, targetPath);
-    }
-  }
-}
-
-function mergeLegacySections(sections) {
-  const seen = new Set();
-  const output = [];
-  for (const [title, content] of sections) {
-    const normalized = normalizeWhitespace(content);
-    if (!normalized) continue;
-
-    const paragraphs = normalized.split('\n\n').filter(Boolean);
-    const uniqueParagraphs = [];
-    for (const paragraph of paragraphs) {
-      const hash = sha256(paragraph.trim());
-      if (seen.has(hash)) continue;
-      seen.add(hash);
-      uniqueParagraphs.push(paragraph.trim());
-    }
-    if (!uniqueParagraphs.length) continue;
-    output.push(`## ${title}\n${uniqueParagraphs.join('\n\n')}`);
-  }
-  return output.join('\n\n').trim();
-}
-
-async function migrate({ apply = false } = {}) {
-  await ensureInitialFiles();
-
-  const actions = [];
-  const hasGeminiKavionLayout = await exists(legacyGeminiKavionRoot);
-  const legacyProjectBrief = await readText(path.join(legacyContextRoot, 'project-brief.md'));
-  const legacyArchitecture = await readText(path.join(legacyContextRoot, 'architecture.md'));
-  const legacyCommands = await readText(path.join(legacyContextRoot, 'commands.md'));
-  const legacyTesting = await readText(path.join(legacyContextRoot, 'testing.md'));
-  const legacyCurrent = await readText(path.join(legacyContextRoot, 'current-work.md'));
-  const legacyDecisions = await readText(path.join(legacyContextRoot, 'decisions.md'));
-  const legacyGithub = await readText(path.join(legacyContextRoot, 'github.md'));
-
-  const mergedProject = `# Project\n\n${mergeLegacySections([
-    ['Brief', legacyProjectBrief],
-    ['Architecture', legacyArchitecture],
-    ['Commands', legacyCommands],
-    ['Testing', legacyTesting],
-    ['GitHub', legacyGithub],
-  ])}\n`;
-
-  const currentLines = lines(legacyCurrent);
-  const currentContent = currentLines.length ? `# Current Work\n\n${currentLines.map((line) => (line.startsWith('-') ? line : `- ${line}`)).join('\n')}\n` : defaultCurrentContent();
-
-  const activeLegacy = await parseLegacySessions(path.join(legacySessionsRoot, 'active'));
-  const archivedLegacy = await parseLegacySessions(path.join(legacySessionsRoot, 'archive'));
-  const sortedActive = [...activeLegacy].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
-  const activeSession = sortedActive[0] || null;
-
-  if (hasGeminiKavionLayout) {
-    actions.push({ action: 'adopt_current_layout', from: '.gemini/kavion/', to: rel(kavionRoot) });
-  }
-
-  actions.push(
-    { action: 'merge_project', from: '.gemini/context/*', to: rel(projectFile) },
-    { action: 'convert_current', from: '.gemini/context/current-work.md', to: rel(currentFile) },
-    { action: 'convert_decisions', from: '.gemini/context/decisions.md', to: rel(decisionsFile) },
-    { action: 'convert_sessions', from: '.gemini/forgekit/sessions/', to: `${rel(sessionFile)} + ${rel(historyFile)}` },
-    { action: 'replace_index', from: '.gemini/forgekit/memory/', to: rel(indexRoot) },
-  );
-
-  if (!apply) {
+async function writeNote({ slug, content, persistent = false } = {}) {
+  await ensureWorkspaceInitialized();
+  const words = wordCount(content);
+  if (words < minNoteWords || words > maxNoteWords) {
     return {
-      ok: true,
-      mode: 'dry-run',
-      actions,
-      active_session: activeSession,
+      ok: false,
+      reason: `Notes must be between ${minNoteWords} and ${maxNoteWords} words.`,
+      words,
     };
   }
+  const active = activeSessionRow();
+  const noteSlug = slugify(slug || content.slice(0, 40));
+  const stamp = isoNow().slice(0, 10);
+  const filePath = path.join(notesRoot, `note-${stamp}-${noteSlug}.md`);
+  const body = `---
+persistent: ${persistent ? 'true' : 'false'}
+created: ${isoNow()}
+---
 
-  if (hasGeminiKavionLayout) {
-    await copyDirectoryContents(legacyGeminiKavionRoot, kavionRoot);
-    await removeIfExists(legacyGeminiKavionRoot);
-    await buildIndex();
-
-    return {
-      ok: true,
-      mode: 'applied',
-      actions,
-      migrated_from: '.gemini/kavion',
-    };
-  }
-
-  await writeTextAtomic(projectFile, `${lines(mergedProject).slice(0, maxProjectLines).join('\n')}\n`);
-  if (normalizeWhitespace(legacyDecisions)) {
-    await writeTextAtomic(decisionsFile, `# Decisions\n\n${normalizeWhitespace(legacyDecisions)}\n`);
-  }
-  await writeTextAtomic(currentFile, currentContent);
-
-  if (activeSession) {
-    await writeJsonAtomic(sessionFile, {
-      ...defaultSession(),
-      ...activeSession,
-      gate_cache: {},
+${normalizeWhitespace(content)}
+`;
+  await writeTextAtomic(filePath, body);
+  const fileContent = await readText(filePath);
+  if (active) {
+    tx(() => {
+      statement(`
+        INSERT INTO artifacts(id, session_id, kind, payload_json, file_path, file_sha256, created_at)
+        VALUES(?, ?, 'note', ?, ?, ?, ?)
+      `).run(
+        makeId('artifact'),
+        active.session_id,
+        safeJson({ slug: noteSlug, persistent }),
+        rel(filePath),
+        sha256(fileContent),
+        nowMs(),
+      );
+      appendEvent(active.session_id, 'note_added', { path: rel(filePath) }, { source: 'tool', agent: 'main' });
     });
   }
-  for (const session of [...archivedLegacy, ...sortedActive.slice(1)]) {
-    await appendJsonl(historyFile, { ...session, archived_at: isoNow(), archive_reason: 'migration' });
-  }
-
-  await removeIfExists(legacyArchiveRoot);
-  await removeIfExists(legacyMemoryRoot);
-  await removeIfExists(legacySessionsRoot);
-  await buildIndex();
-
+  await touchDirtyIndex();
   return {
     ok: true,
-    mode: 'applied',
-    actions,
-    active_session: activeSession,
+    file: rel(filePath),
+    persistent,
+    words,
+  };
+}
+
+async function closeActiveSession(reason = 'completed') {
+  await ensureWorkspaceInitialized();
+  const active = activeSessionRow();
+  if (!active) {
+    return { ok: false, reason: 'No active session to archive.' };
+  }
+  tx(() => {
+    statement(`
+      UPDATE sessions
+      SET status = 'closed', phase = 'closed', closed_at = ?
+      WHERE id = ?
+    `).run(nowMs(), active.session_id);
+    statement(`
+      UPDATE tasks
+      SET status = 'done', closed_at = ?
+      WHERE id = ?
+    `).run(nowMs(), active.task_id);
+    appendEvent(active.session_id, 'session_closed', { reason }, { source: 'tool', agent: 'main' });
+  });
+  await renderSessionViews();
+  await touchDirtyIndex();
+  return {
+    ok: true,
+    archived: {
+      task: active.task,
+      session_id: active.session_id,
+      reason,
+    },
   };
 }
 
 async function readGateConfig() {
-  await ensureInitialFiles();
+  await ensureStaticFiles();
   const raw = await readText(gatesFile);
   try {
-    const parsed = YAML.parse(raw) || {};
     return {
-      ...defaultGatesConfig(),
-      ...parsed,
-      review: {
-        ...defaultGateConfig.review,
-        ...(parsed.review || {}),
-      },
-      test: {
-        ...defaultGateConfig.test,
-        ...(parsed.test || {}),
-      },
-      security: {
-        ...defaultGateConfig.security,
-        ...(parsed.security || {}),
-      },
-      ship: {
-        ...defaultGateConfig.ship,
-        ...(parsed.ship || {}),
-      },
+      ...structuredClone(defaultGateConfig),
+      ...(YAML.parse(raw) || {}),
     };
   } catch {
-    return defaultGatesConfig();
+    return structuredClone(defaultGateConfig);
   }
 }
 
@@ -894,11 +1197,6 @@ async function runShell(command) {
   });
 }
 
-async function gitHead() {
-  const result = await runShell('git rev-parse HEAD');
-  return result.exit_code === 0 ? result.stdout.trim() : null;
-}
-
 async function gitBranch() {
   const result = await runShell('git branch --show-current');
   return result.exit_code === 0 ? result.stdout.trim() : null;
@@ -909,376 +1207,132 @@ async function gitStatusPorcelain() {
   return result.exit_code === 0 ? result.stdout : '';
 }
 
-async function changedFiles() {
-  const result = await runShell('git status --porcelain');
-  if (result.exit_code !== 0 || !result.stdout) return [];
-  return result.stdout
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => line.slice(3).trim())
-    .filter(Boolean);
+async function latestArtifact(sessionId, kind) {
+  return statement(`
+    SELECT * FROM artifacts
+    WHERE session_id = ? AND kind = ? AND superseded_by IS NULL
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).get(sessionId, kind);
 }
 
-function globToRegExp(pattern) {
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\*\*/g, '::DOUBLE_STAR::')
-    .replace(/\*/g, '[^/]*')
-    .replace(/::DOUBLE_STAR::/g, '.*');
-  return new RegExp(`^${escaped}$`);
-}
-
-function matchesAnyPattern(filePath, patterns) {
-  return patterns.some((pattern) => globToRegExp(pattern).test(filePath));
-}
-
-async function latestMtime(filePaths) {
-  let latest = 0;
-  for (const filePath of filePaths) {
-    const absolutePath = path.join(workspacePath, filePath);
-    const stat = await fs.stat(absolutePath).catch(() => null);
-    if (stat?.mtimeMs && stat.mtimeMs > latest) latest = stat.mtimeMs;
+async function runGate(name) {
+  await ensureWorkspaceInitialized();
+  const active = activeSessionRow();
+  if (!active && name !== 'status') {
+    return { ok: false, reason: 'NO_SESSION', next_step: 'Call kavion_session_start first.' };
   }
-  return latest;
-}
 
-function coveragePercent(payload) {
-  if (!payload || typeof payload !== 'object') return null;
-  if (payload.total?.lines?.pct != null) return Number(payload.total.lines.pct);
-
-  const entries = Object.values(payload)
-    .map((item) => item?.lines?.pct)
-    .filter((value) => typeof value === 'number');
-  if (!entries.length) return null;
-  return Number((entries.reduce((sum, value) => sum + value, 0) / entries.length).toFixed(2));
-}
-
-async function readCoverage(filePath) {
-  if (!filePath) return null;
-  const payload = await readJson(path.join(workspacePath, filePath), null);
-  return coveragePercent(payload);
-}
-
-async function findPlanFile(slug) {
-  const preferred = path.join(plansRoot, `plan-${slug}.md`);
-  if (await exists(preferred)) return preferred;
-  const names = await fs.readdir(plansRoot).catch(() => []);
-  if (names.length === 1) return path.join(plansRoot, names[0]);
-  return null;
-}
-
-async function findReportFile(slug, gateName) {
-  const preferred = path.join(reportsRoot, `${slug}-${gateName}.md`);
-  if (await exists(preferred)) return preferred;
-  return null;
-}
-
-function extractRepoPaths(content) {
-  const matches = String(content || '').match(/[A-Za-z0-9_./-]+\.[A-Za-z0-9]+/g) || [];
-  return uniq(matches);
-}
-
-async function existingRepoPaths(pathsToCheck) {
-  const found = [];
-  for (const candidate of pathsToCheck) {
-    const absolutePath = path.join(workspacePath, candidate);
-    if (await exists(absolutePath)) found.push(candidate);
-  }
-  return found;
-}
-
-function reportFrontmatter(label, value) {
-  return `**${label}:** ${value}`;
-}
-
-async function writeGateReport(slug, gateName, result) {
-  await ensureDirs();
-  const filePath = path.join(reportsRoot, `${slug}-${gateName}.md`);
-  const commandBlock = result.command
-    ? `${reportFrontmatter('Command', `\`${result.command.command}\``)}
-${reportFrontmatter('Exit code', result.command.exit_code)}
-${reportFrontmatter('Duration', `${result.command.duration_ms}ms`)}`
-    : '';
-
-  const outputExcerpt = result.command
-    ? [result.command.stdout, result.command.stderr]
-        .filter(Boolean)
-        .join('\n')
-        .slice(0, 2400)
-    : (result.evidence || '').slice(0, 2400);
-
-  const body = `# Report: ${slug} - ${gateName}
-
-${reportFrontmatter('Timestamp', isoNow())}
-${reportFrontmatter('Git HEAD', (await gitHead()) || 'unknown')}
-${commandBlock ? `\n${commandBlock}` : ''}
-${result.coverage != null ? `\n${reportFrontmatter('Coverage', `${result.coverage}%`)}` : ''}
-
-## Result: ${String(result.result || result.status || 'unknown').toUpperCase()}
-
-## Evidence
-${result.evidence || 'No additional evidence.'}
-
-## Output excerpt
-\`\`\`
-${outputExcerpt || '(none)'}
-\`\`\`
-`;
-
-  await writeTextAtomic(filePath, body);
-  await touchDirtyIndex();
-  return rel(filePath);
-}
-
-async function gatePlan(session, config, { write_report = false } = {}) {
-  const slug = session.slug || slugify(session.task);
-  const filePath = await findPlanFile(slug);
-  if (!filePath) {
-    const result = {
+  const config = await readGateConfig();
+  if (name === 'status') return getStatus();
+  if (name === 'plan') {
+    const plan = active ? await latestArtifact(active.session_id, 'plan') : null;
+    return {
       gate: 'plan',
-      status: 'block',
-      result: 'block',
-      evidence: 'No plan file found for the active task.',
-      next_step: `Create ${rel(path.join(plansRoot, `plan-${slug}.md`))}.`,
+      result: plan ? 'pass' : 'block',
+      evidence: plan ? `Plan artifact exists at ${plan.file_path}.` : 'No plan artifact found.',
     };
-    if (write_report) result.report_file = await writeGateReport(slug, 'plan', result);
-    return result;
   }
-
-  const content = await readText(filePath);
-  const referenced = await existingRepoPaths(extractRepoPaths(content));
-  const pass = referenced.length > 0;
-  const result = {
-    gate: 'plan',
-    status: pass ? 'pass' : 'risk',
-    result: pass ? 'pass' : 'risk',
-    file: rel(filePath),
-    evidence: pass
-      ? `Plan references real files: ${referenced.slice(0, 8).join(', ')}`
-      : 'Plan exists but does not reference real repo files.',
-    next_step: pass ? '' : 'Update the plan to reference actual files or modules.',
-  };
-  if (write_report) result.report_file = await writeGateReport(slug, 'plan', result);
-  return result;
-}
-
-async function gateTest(session, config, { write_report = false, use_cache = true } = {}) {
-  const slug = session.slug || slugify(session.task);
-  const command = config.test?.command;
-  const head = await gitHead();
-  const cached = session.gate_cache?.test;
-
-  if (use_cache && cached?.git_head && cached.git_head === head) {
+  if (name === 'test') {
+    const command = config.test?.command;
+    if (!command) {
+      return {
+        gate: 'test',
+        result: 'risk',
+        evidence: 'No test command configured in .kavion/gates.yaml.',
+      };
+    }
+    const commandResult = await runShell(command);
+    tx(() => {
+      statement(`
+        INSERT INTO gate_runs(session_id, name, passed, exit_code, stdout_sha256, stdout_preview, ran_at, ttl_seconds)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        active.session_id,
+        'test',
+        commandResult.exit_code === 0 ? 1 : 0,
+        commandResult.exit_code,
+        sha256(commandResult.stdout),
+        commandResult.stdout.slice(0, 4096),
+        nowMs(),
+        1800,
+      );
+      appendEvent(active.session_id, 'gate_run', { name: 'test', passed: commandResult.exit_code === 0 }, { source: 'tool', agent: 'qa-test-engineer' });
+    });
     return {
       gate: 'test',
-      status: cached.result,
-      result: cached.result,
-      evidence: `Using cached test result from ${cached.timestamp}.`,
-      coverage: cached.coverage ?? null,
-      cached: true,
+      result: commandResult.exit_code === 0 ? 'pass' : 'block',
+      command: commandResult,
+      evidence: commandResult.exit_code === 0 ? 'Configured test command exited 0.' : 'Configured test command failed.',
     };
   }
-
-  if (!command) {
-    const result = {
-      gate: 'test',
-      status: 'risk',
-      result: 'risk',
-      evidence: 'No test command configured in gates.yaml.',
-      next_step: 'Set test.command in .kavion/gates.yaml.',
-    };
-    if (write_report) result.report_file = await writeGateReport(slug, 'test', result);
-    return result;
-  }
-
-  const commandResult = await runShell(command);
-  const coverage = await readCoverage(config.test?.coverage_file);
-  const threshold = Number(config.test?.coverage_threshold || 0);
-  const pass = commandResult.exit_code === 0 && (coverage == null || coverage >= threshold);
-  const status = pass ? 'pass' : 'block';
-  const result = {
-    gate: 'test',
-    status,
-    result: status,
-    command: commandResult,
-    coverage,
-    evidence:
-      commandResult.exit_code === 0
-        ? coverage != null && coverage < threshold
-          ? `Tests passed but coverage ${coverage}% is below threshold ${threshold}%.`
-          : 'Configured test command exited 0.'
-        : 'Configured test command failed.',
-    next_step: pass ? '' : 'Fix the failing test or update gates.yaml if the command is wrong.',
-  };
-
-  const nextSession = await writeSession({
-    verification: pass ? `test gate passed via ${command}` : `test gate failed via ${command}`,
-    gate_cache: {
-      test: {
-        result: status,
-        git_head: head,
-        timestamp: isoNow(),
-        coverage,
-      },
-    },
-  });
-  Object.assign(session, nextSession);
-
-  if (write_report) result.report_file = await writeGateReport(slug, 'test', result);
-  return result;
-}
-
-async function gateReview(session, config, { write_report = false } = {}) {
-  const slug = session.slug || slugify(session.task);
-  const filePath = await findReportFile(slug, 'review');
-  if (!filePath) {
+  if (name === 'review') {
+    const report = await latestArtifact(active.session_id, 'report:review');
     return {
       gate: 'review',
-      status: 'block',
-      result: 'block',
-      evidence: 'No review report found.',
-      next_step: `Write ${rel(path.join(reportsRoot, `${slug}-review.md`))}.`,
+      result: report ? 'pass' : 'block',
+      evidence: report ? `Review artifact exists at ${report.file_path}.` : 'No review report artifact found.',
     };
   }
-
-  const content = await readText(filePath);
-  const requiredSections = config.review?.required_sections || [];
-  const missingSections = requiredSections.filter((section) => !new RegExp(`^##\\s+${section}\\b`, 'im').test(content));
-  const changed = await changedFiles();
-  const latestChanged = await latestMtime(changed);
-  const stat = await fs.stat(filePath).catch(() => null);
-  const fresh = !latestChanged || (stat?.mtimeMs || 0) >= latestChanged;
-
-  const status = missingSections.length ? 'block' : fresh ? 'pass' : 'risk';
-  const result = {
-    gate: 'review',
-    status,
-    result: status,
-    file: rel(filePath),
-    evidence: missingSections.length
-      ? `Missing review sections: ${missingSections.join(', ')}`
-      : fresh
-        ? 'Review report exists and is newer than current changed files.'
-        : 'Review report is stale relative to current changes.',
-    next_step: status === 'pass' ? '' : 'Refresh the review report after the latest code changes.',
-  };
-  if (write_report) result.report_file = await writeGateReport(slug, 'review-check', result);
-  return result;
-}
-
-async function gateSecurity(session, config, { write_report = false } = {}) {
-  const slug = session.slug || slugify(session.task);
-  const changed = await changedFiles();
-  const triggerPaths = config.security?.trigger_paths || [];
-  const triggered = changed.some((filePath) => matchesAnyPattern(filePath, triggerPaths));
-  if (!triggered) {
+  if (name === 'security') {
+    const command = config.security?.command;
+    if (!command) {
+      return {
+        gate: 'security',
+        result: 'risk',
+        evidence: 'No security command configured in .kavion/gates.yaml.',
+      };
+    }
+    const commandResult = await runShell(command);
+    tx(() => {
+      statement(`
+        INSERT INTO gate_runs(session_id, name, passed, exit_code, stdout_sha256, stdout_preview, ran_at, ttl_seconds)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        active.session_id,
+        'security',
+        commandResult.exit_code === 0 ? 1 : 0,
+        commandResult.exit_code,
+        sha256(commandResult.stdout),
+        commandResult.stdout.slice(0, 4096),
+        nowMs(),
+        1800,
+      );
+      appendEvent(active.session_id, 'gate_run', { name: 'security', passed: commandResult.exit_code === 0 }, { source: 'tool', agent: 'security-engineer' });
+    });
     return {
       gate: 'security',
-      status: 'pass',
-      result: 'pass',
-      evidence: 'Security gate not triggered by current changed files.',
-      skipped: true,
+      result: commandResult.exit_code === 0 ? 'pass' : 'block',
+      command: commandResult,
+      evidence: commandResult.exit_code === 0 ? 'Configured security command exited 0.' : 'Configured security command failed.',
     };
   }
-
-  const command = config.security?.command;
-  if (!command) {
-    const result = {
-      gate: 'security',
-      status: 'risk',
-      result: 'risk',
-      evidence: 'Security gate triggered, but no security command is configured.',
-      next_step: 'Set security.command in .kavion/gates.yaml.',
+  if (name === 'ship') {
+    const plan = await runGate('plan');
+    const review = await runGate('review');
+    const test = await runGate('test');
+    const security = await runGate('security');
+    const branch = await gitBranch();
+    const clean = !(await gitStatusPorcelain()).trim();
+    const blockers = [plan, review, test, security]
+      .filter((result) => result.result === 'block')
+      .map((result) => `${result.gate} blocked`);
+    if (!clean) blockers.push('git status not clean');
+    if (branch === 'main') blockers.push('current branch is main');
+    return {
+      gate: 'ship',
+      result: blockers.length ? 'block' : 'pass',
+      evidence: blockers.length ? blockers.join('; ') : 'Plan, review, test, security, branch, and git cleanliness checks passed.',
+      component_results: { plan, review, test, security },
+      branch,
+      clean,
     };
-    if (write_report) result.report_file = await writeGateReport(slug, 'security', result);
-    return result;
   }
-
-  const commandResult = await runShell(command);
-  const status = commandResult.exit_code === 0 ? 'pass' : 'block';
-  const result = {
-    gate: 'security',
-    status,
-    result: status,
-    command: commandResult,
-    evidence: commandResult.exit_code === 0 ? 'Security command exited 0.' : 'Security command failed.',
-    next_step: status === 'pass' ? '' : 'Address the security findings before shipping.',
-  };
-  if (write_report) result.report_file = await writeGateReport(slug, 'security', result);
-  return result;
-}
-
-async function gateShip(session, config, options = {}) {
-  const slug = session.slug || slugify(session.task);
-  const plan = await gatePlan(session, config, { write_report: options.write_reports });
-  const test = await gateTest(session, config, { write_report: options.write_reports, use_cache: true });
-  const review = await gateReview(session, config, { write_report: false });
-  const security = await gateSecurity(session, config, { write_report: options.write_reports });
-  const branch = await gitBranch();
-  const porcelain = await gitStatusPorcelain();
-  const clean = !porcelain.trim();
-  const defaultBranch = config.ship?.default_branch || 'main';
-
-  let status = 'pass';
-  const blockers = [];
-  for (const gate of [plan, test, review, security]) {
-    if (gate.result === 'block') blockers.push(`${gate.gate} blocked`);
-    if (gate.result === 'risk' && status === 'pass') status = 'risk';
-  }
-  if (!clean) {
-    blockers.push('git status not clean');
-    status = 'block';
-  }
-  if (branch === defaultBranch) {
-    blockers.push(`current branch is ${defaultBranch}`);
-    status = 'block';
-  }
-
-  const result = {
-    gate: 'ship',
-    status,
-    result: status,
-    branch,
-    clean,
-    default_branch: defaultBranch,
-    component_results: { plan, test, review, security },
-    evidence: blockers.length ? blockers.join('; ') : 'All ship gates passed and git state is clean.',
-    next_step: status === 'pass' ? 'Archive or open a PR.' : 'Resolve blocking ship gates.',
-  };
-  if (options.write_reports) result.report_file = await writeGateReport(slug, 'ship', result);
-  return result;
-}
-
-async function runGate(name, options = {}) {
-  const session = await getSession();
-  const config = await readGateConfig();
-  const normalized = String(name || 'status').toLowerCase();
-
-  if (normalized === 'status') return getStatus();
-  if (normalized === 'plan') return gatePlan(session, config, options);
-  if (normalized === 'test') return gateTest(session, config, options);
-  if (normalized === 'review') return gateReview(session, config, options);
-  if (normalized === 'security') return gateSecurity(session, config, options);
-  if (normalized === 'ship') return gateShip(session, config, options);
-
-  return {
-    gate: normalized,
-    status: 'block',
-    result: 'block',
-    evidence: `Unknown gate: ${normalized}`,
-    next_step: 'Use status, plan, test, review, security, or ship.',
-  };
-}
-
-function legacyAuditDecision(statusResult) {
-  if (statusResult.memory?.oversized?.length || statusResult.memory?.expired_notes?.length || statusResult.memory?.index_dirty) {
-    return 'pass-with-risk';
-  }
-  return 'pass';
+  return { gate: name, result: 'block', evidence: `Unknown gate: ${name}` };
 }
 
 async function memoryGc({ delete_expired = true } = {}) {
-  await ensureInitialFiles();
+  await ensureWorkspaceInitialized();
   const names = await fs.readdir(notesRoot).catch(() => []);
   const expired = [];
   const kept = [];
@@ -1289,11 +1343,10 @@ async function memoryGc({ delete_expired = true } = {}) {
     const content = await readText(filePath);
     const stat = await fs.stat(filePath).catch(() => null);
     if (!stat) continue;
-
     const frontmatter = content.match(/^---\n([\s\S]*?)\n---\n/);
     const parsed = frontmatter ? YAML.parse(frontmatter[1]) : {};
     const ageDays = (now - stat.mtimeMs) / (1000 * 60 * 60 * 24);
-    if (ageDays > noteTtlDays && !truthy(parsed?.persistent)) {
+    if (ageDays > noteTtlDays && !parsed?.persistent) {
       expired.push({ file: rel(filePath), age_days: Number(ageDays.toFixed(1)) });
       if (delete_expired) await fs.rm(filePath, { force: true });
     } else {
@@ -1301,19 +1354,16 @@ async function memoryGc({ delete_expired = true } = {}) {
     }
   }
 
-  const projectLineCount = lines(await readText(projectFile)).length;
-  const currentLineCount = lines(await readText(currentFile)).length;
-  const decisionsContent = await readText(decisionsFile);
-  const decisionEntries = (decisionsContent.match(/^##\s+/gm) || []).length;
-
   const oversized = [];
+  const projectLineCount = lines(await readText(projectFile)).length;
   if (projectLineCount > maxProjectLines) oversized.push({ file: rel(projectFile), lines: projectLineCount, max: maxProjectLines });
+  const currentLineCount = lines(await readText(currentFile)).length;
   if (currentLineCount > maxCurrentLines) oversized.push({ file: rel(currentFile), lines: currentLineCount, max: maxCurrentLines });
-  if (decisionEntries > maxDecisionEntries) oversized.push({ file: rel(decisionsFile), entries: decisionEntries, max: maxDecisionEntries });
+  const decisionsCount = (await readText(decisionsFile)).match(/^##\s+/gm)?.length || 0;
+  if (decisionsCount > maxDecisionEntries) oversized.push({ file: rel(decisionsFile), entries: decisionsCount, max: maxDecisionEntries });
 
   if (delete_expired && expired.length) {
     await touchDirtyIndex();
-    await buildIndex();
   }
 
   return {
@@ -1321,174 +1371,427 @@ async function memoryGc({ delete_expired = true } = {}) {
     expired_notes: expired,
     kept_notes: kept.slice(0, 20),
     oversized,
-    deleted: Boolean(delete_expired),
   };
 }
 
 async function getStatus() {
-  await ensureInitialFiles();
-  const session = await getSession();
+  await ensureWorkspaceInitialized();
+  const session = activeSessionRow();
   const dirty = await exists(dirtyFile);
   const branch = await gitBranch();
   const porcelain = await gitStatusPorcelain();
   const noteGc = await memoryGc({ delete_expired: false });
   const latestPlanNames = (await fs.readdir(plansRoot).catch(() => [])).filter((name) => name.endsWith('.md')).sort();
   const latestReportNames = (await fs.readdir(reportsRoot).catch(() => [])).filter((name) => name.endsWith('.md')).sort();
-
   return {
     workspace: workspacePath,
     branch,
     git_clean: !porcelain.trim(),
     current: normalizeWhitespace(await readText(currentFile)).slice(0, 1400),
-    session,
+    session: session ? {
+      ...session,
+      files_touched: sessionFilesTouched(session.session_id),
+      agents_used: sessionAgentsUsed(session.session_id),
+    } : defaultRenderedSession(),
+    storage: {
+      state_db: rel(stateDbFile),
+      current_view: rel(currentFile),
+      session_view: rel(sessionFile),
+      hook_settings: rel(projectGeminiSettingsFile),
+    },
     memory: {
       index_root: rel(indexRoot),
-      chunks_file: rel(chunksFile),
-      bm25_file: rel(miniSearchFile),
       index_dirty: dirty,
       oversized: noteGc.oversized,
       expired_notes: noteGc.expired_notes,
     },
     latest_plans: latestPlanNames.slice(-5),
     latest_reports: latestReportNames.slice(-5),
-    decision: legacyAuditDecision({
-      memory: {
-        oversized: noteGc.oversized,
-        expired_notes: noteGc.expired_notes,
-        index_dirty: dirty,
-      },
-    }),
-    next_step: dirty ? '/kavion:status or /kavion:memory-index' : session.next_step || '',
+    next_step: session?.next_step || '',
   };
 }
 
-async function initializeWorkspace() {
-  await ensureInitialFiles();
-  await touchDirtyIndex();
-  const built = await buildIndex();
-  return {
-    ok: true,
-    root: rel(kavionRoot),
-    files: [
-      rel(projectFile),
-      rel(decisionsFile),
-      rel(decisionsArchiveFile),
-      rel(currentFile),
-      rel(sessionFile),
-      rel(historyFile),
-      rel(gatesFile),
-      rel(notesRoot),
-      rel(plansRoot),
-      rel(reportsRoot),
-      rel(indexRoot),
-    ],
-    index: built,
+function markdownChunks(content) {
+  const rawLines = String(content || '').replace(/\r\n/g, '\n').split('\n');
+  const chunks = [];
+  const stack = [];
+  let body = [];
+
+  const flush = () => {
+    const text = normalizeWhitespace(body.join('\n'));
+    if (!text) {
+      body = [];
+      return;
+    }
+    const headingPath = stack.map((item) => item.text).join(' > ') || 'Document';
+    chunks.push({ heading_path: headingPath, text });
+    body = [];
   };
+
+  for (const line of rawLines) {
+    const match = line.match(/^(#{1,3})\s+(.*)$/);
+    if (match) {
+      flush();
+      const level = match[1].length;
+      const text = match[2].trim();
+      while (stack.length >= level) stack.pop();
+      stack.push({ level, text });
+      continue;
+    }
+    body.push(line);
+  }
+  flush();
+  return chunks.length ? chunks : [{ heading_path: 'Document', text: normalizeWhitespace(content) }];
 }
 
-async function writeNote({ slug, content, persistent = false } = {}) {
-  const words = wordCount(content);
-  if (words < minNoteWords || words > maxNoteWords) {
-    return {
-      ok: false,
-      reason: `Notes must be between ${minNoteWords} and ${maxNoteWords} words.`,
-      words,
-    };
+function createMiniSearch() {
+  return new MiniSearch(searchOptions);
+}
+
+async function collectIndexableFiles() {
+  const queue = [projectFile, decisionsFile, decisionsArchiveFile, currentFile, sessionFile, gatesFile];
+  async function walk(dirPath) {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      const full = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) await walk(full);
+      if (entry.isFile() && (full.endsWith('.md') || full.endsWith('.json'))) queue.push(full);
+    }
+  }
+  await walk(notesRoot);
+  await walk(plansRoot);
+  await walk(reportsRoot);
+  await walk(historyRoot);
+  return uniq(queue);
+}
+
+async function buildIndex() {
+  await ensureWorkspaceInitialized();
+  const files = await collectIndexableFiles();
+  const chunks = [];
+  const mini = createMiniSearch();
+  const active = activeSessionRow();
+
+  for (const filePath of files) {
+    const stat = await fs.stat(filePath).catch(() => null);
+    const content = filePath.endsWith('.json')
+      ? JSON.stringify(await readJson(filePath, {}), null, 2)
+      : await readText(filePath);
+    if (!normalizeWhitespace(content)) continue;
+    const type = filePath.startsWith(notesRoot)
+      ? 'note'
+      : filePath.startsWith(plansRoot)
+        ? 'plan'
+        : filePath.startsWith(reportsRoot)
+          ? 'report'
+          : filePath === projectFile
+            ? 'project'
+            : filePath === decisionsFile || filePath === decisionsArchiveFile
+              ? 'decision'
+              : filePath === currentFile || filePath === sessionFile
+                ? 'session'
+                : 'memory';
+    for (const chunk of markdownChunks(content)) {
+      const record = {
+        id: sha1(`${rel(filePath)}:${chunk.heading_path}:${chunk.text}`).slice(0, 8),
+        path: rel(filePath),
+        heading_path: chunk.heading_path,
+        text: chunk.text,
+        tokens: tokenize(chunk.text).length,
+        updated: stat?.mtime?.toISOString() || isoNow(),
+        type,
+        session_id: active?.session_id || '',
+        task_id: active?.task_id || '',
+      };
+      chunks.push(record);
+    }
   }
 
-  const safeSlug = slugify(slug || content.slice(0, 40));
-  const stamp = isoNow().slice(0, 10);
-  const filePath = path.join(notesRoot, `note-${stamp}-${safeSlug}.md`);
-  const body = `---
-persistent: ${persistent ? 'true' : 'false'}
-created: ${isoNow()}
----
-
-${normalizeWhitespace(content)}
-`;
-
-  await writeTextAtomic(filePath, body);
-  await touchDirtyIndex();
-
+  mini.addAll(chunks);
+  await writeTextAtomic(chunksFile, `${chunks.map((chunk) => JSON.stringify(chunk)).join('\n')}${chunks.length ? '\n' : ''}`);
+  await writeJsonAtomic(miniSearchFile, mini.toJSON());
+  await writeJsonAtomic(indexMetaFile, {
+    built_at: isoNow(),
+    schema_version: 1,
+    chunks: chunks.length,
+  });
+  await removeIfExists(dirtyFile);
   return {
     ok: true,
-    file: rel(filePath),
-    persistent,
-    words,
+    backend: 'bm25',
+    files: files.length,
+    chunks: chunks.length,
+    root: rel(indexRoot),
   };
 }
 
-function text(data) {
+async function loadIndex() {
+  const missing = !(await exists(chunksFile)) || !(await exists(miniSearchFile));
+  const dirty = await exists(dirtyFile);
+  if (missing || dirty) await buildIndex();
+  const chunks = await readJsonl(chunksFile);
+  const miniJson = await readJson(miniSearchFile, null);
+  const mini = miniJson ? MiniSearch.loadJSON(miniJson, searchOptions) : createMiniSearch();
+  const chunkMap = new Map(chunks.map((chunk) => [chunk.id, chunk]));
+  return { mini, chunkMap, dirty };
+}
+
+async function searchIndex({ query, top_k = 5 }) {
+  const { mini, chunkMap } = await loadIndex();
   return {
-    content: [
-      {
-        type: 'text',
-        text: typeof data === 'string' ? data : JSON.stringify(data, null, 2),
-      },
-    ],
+    query,
+    backend: 'bm25',
+    results: mini.search(query, searchOptions.searchOptions).slice(0, top_k).map((result) => {
+      const chunk = chunkMap.get(result.id);
+      return {
+        id: result.id,
+        path: chunk?.path || result.path,
+        heading_path: chunk?.heading_path || result.heading_path || 'Document',
+        type: chunk?.type || result.type || 'memory',
+        score: Number(result.score.toFixed(4)),
+        snippet: String(chunk?.text || '').slice(0, 220),
+        updated: chunk?.updated || result.updated || null,
+      };
+    }),
   };
 }
 
-const server = new McpServer({
-  name: 'kavion-workflow',
-  version: serverVersion,
-});
+async function readChunk(id) {
+  const { chunkMap } = await loadIndex();
+  return chunkMap.get(id) || null;
+}
 
-server.registerTool(
-  'kavion_initialize_workspace',
-  {
-    description: 'Create the Kavion workspace memory structure and build the local BM25 index.',
-    inputSchema: z.object({}).shape,
-  },
-  async () => text(await initializeWorkspace()),
-);
+async function importLegacySessionJson() {
+  const legacy = await readJson(sessionFile, null);
+  if (!legacy || !legacy.task) return null;
+  const current = activeSessionRow();
+  if (current) return current;
+  const started = await sessionStart({ task: legacy.task, force_new: true, agent: legacy.active_agent || 'main' });
+  if (legacy.phase && phaseOrder.includes(legacy.phase) && legacy.phase !== 'init') {
+    await sessionTransition({
+      to_phase: legacy.phase,
+      next_step: legacy.next_step || '',
+      blocker: legacy.blockers || legacy.blocker || 'none',
+    });
+  }
+  await updateSessionCompat({
+    next_step: legacy.next_step || '',
+    blockers: legacy.blockers || legacy.blocker || 'none',
+    files_touched: legacy.files_touched || [],
+    agents_used: legacy.agents_used || [],
+    active_agent: legacy.active_agent || '',
+  });
+  return started.session;
+}
 
-server.registerTool(
-  'kavion_update_session',
-  {
-    description: 'Create or update the live Kavion session.json file.',
-    inputSchema: z
-      .object({
-        task: z.string().optional(),
-        slug: z.string().optional(),
-        workflow: z.enum(['express', 'standard']).optional(),
-        phase: z.string().optional(),
-        status: z.string().optional(),
-        active_agent: z.string().optional(),
-        blockers: z.string().optional(),
-        next_step: z.string().optional(),
-        verification: z.string().optional(),
-        files_touched: z.array(z.string()).default([]),
-        agents_used: z.array(z.string()).default([]),
-      })
-      .shape,
-  },
-  async (payload) => text(await writeSession(payload)),
-);
+async function migrate({ apply = false } = {}) {
+  await ensureStaticFiles();
+  const actions = [
+    { action: 'create_state_db', to: rel(stateDbFile) },
+    { action: 'install_hook_settings', to: rel(projectGeminiSettingsFile) },
+    { action: 'render_current_and_session', to: `${rel(currentFile)}, ${rel(sessionFile)}` },
+    { action: 'retain_existing_plans_reports_notes', to: '.kavion/plans, .kavion/reports, .kavion/notes' },
+  ];
+  if (!apply) {
+    return { ok: true, mode: 'dry-run', actions };
+  }
+  await ensureWorkspaceInitialized();
+  await installGeminiHookSettings();
+  await importLegacySessionJson();
+  await renderSessionViews();
+  await touchDirtyIndex();
+  await buildIndex();
+  return { ok: true, mode: 'applied', actions };
+}
 
-server.registerTool(
-  'kavion_update_current',
-  {
-    description: 'Update the live CURRENT.md file for the active task.',
-    inputSchema: z
-      .object({
-        active_task: z.string().default(''),
-        status: z.string().default(''),
+function extractUserText(input) {
+  if (typeof input?.prompt === 'string') return input.prompt;
+  if (typeof input?.user_prompt === 'string') return input.user_prompt;
+  if (Array.isArray(input?.llm_request?.messages)) {
+    const lastUser = [...input.llm_request.messages].reverse().find((message) => message?.role === 'user');
+    const content = lastUser?.content;
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) return content.map((part) => part?.text || '').join('\n');
+  }
+  return '';
+}
+
+function buildHotContext() {
+  const session = activeSessionRow();
+  if (!session) {
+    return 'Kavion: no active session. Start one with kavion_session_start for non-trivial work.';
+  }
+  const events = recentEvents(session.session_id, 5);
+  return [
+    '## Kavion Session',
+    `- Task: ${session.task}`,
+    `- Class: ${session.task_class}`,
+    `- Phase: ${session.phase}`,
+    `- Status: ${session.status}`,
+    `- Next step: ${session.next_step || ''}`,
+    `- Blocker: ${session.blocker || 'none'}`,
+    events.length ? `- Recent events: ${events.map((event) => event.kind).join(', ')}` : '- Recent events: none',
+  ].join('\n');
+}
+
+async function handleSessionStartHook() {
+  try {
+    await ensureWorkspaceInitialized();
+    await renderSessionViews();
+    return {
+      hookSpecificOutput: {
+        hookEventName: 'SessionStart',
+        additionalContext: buildHotContext(),
+      },
+    };
+  } catch (error) {
+    await logWorker('session-start hook failed', { error: String(error?.message || error) });
+    return fallbackHookError('session start unavailable');
+  }
+}
+
+async function handleBeforeAgentHook(input) {
+  try {
+    await ensureWorkspaceInitialized();
+    const prompt = extractUserText(input);
+    const session = activeSessionRow();
+    const planRequired = session && session.task_class === 'medium' && session.phase === 'code' && !(await hasPlanArtifact(session.session_id));
+    if (planRequired) {
+      return {
+        decision: 'deny',
+        reason: 'Kavion policy: code phase requires a plan artifact for medium tasks.',
+        systemMessage: 'Create a plan with kavion_plan_create, then retry.',
+      };
+    }
+    const additionalContext = buildHotContext();
+    if (!session && prompt && classifyTask(prompt) !== 'trivial') {
+      return {
+        hookSpecificOutput: {
+          hookEventName: 'BeforeAgent',
+          additionalContext: `${additionalContext}\n\nKavion policy: start a session with kavion_session_start before substantial work.`,
+        },
+      };
+    }
+    return {
+      hookSpecificOutput: {
+        hookEventName: 'BeforeAgent',
+        additionalContext,
+      },
+    };
+  } catch (error) {
+    await logWorker('before-agent hook failed', { error: String(error?.message || error) });
+    return fallbackHookError('before-agent unavailable');
+  }
+}
+
+function toolTouchedPath(toolInput = {}) {
+  const candidates = [
+    toolInput.path,
+    toolInput.file_path,
+    toolInput.filePath,
+    toolInput.target_file,
+    toolInput.absolute_path,
+    toolInput.old_file_path,
+    toolInput.new_file_path,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value));
+  const match = candidates.find(Boolean);
+  if (!match) return null;
+  if (path.isAbsolute(match)) return rel(match);
+  return match.replace(/\\/g, '/');
+}
+
+async function handleAfterToolHook(input) {
+  try {
+    await ensureWorkspaceInitialized();
+    const session = activeSessionRow();
+    if (!session) return {};
+    const toolName = input?.tool_name || input?.toolName || 'unknown_tool';
+    const payload = {
+      tool_name: toolName,
+      tool_input: input?.tool_input || {},
+      tool_output_summary: typeof input?.tool_output === 'string' ? input.tool_output.slice(0, 400) : '',
+    };
+    tx(() => {
+      appendEvent(session.session_id, 'tool_call', payload, { source: 'hook', agent: 'main' });
+      const touched = toolTouchedPath(input?.tool_input || {});
+      if (touched && !touched.startsWith('.kavion/index/')) {
+        appendEvent(session.session_id, 'file_touched', { path: touched }, { source: 'hook', agent: 'main' });
+      }
+    });
+    await renderSessionViews();
+    await touchDirtyIndex();
+    return {};
+  } catch (error) {
+    await logWorker('after-tool hook failed', { error: String(error?.message || error) });
+    await recordFallbackEvent('after_tool_failure', { error: String(error?.message || error) });
+    return {};
+  }
+}
+
+async function runHook(eventName) {
+  const stdin = await new Promise((resolve) => {
+    const chunks = [];
+    process.stdin.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+    process.stdin.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+  });
+  const input = parseJson(stdin || '{}', {});
+
+  if (eventName === 'session-start') return handleSessionStartHook(input);
+  if (eventName === 'before-agent') return handleBeforeAgentHook(input);
+  if (eventName === 'after-tool') return handleAfterToolHook(input);
+
+  return {};
+}
+
+async function startMcpServer() {
+  await ensureWorkspaceInitialized();
+  const server = new McpServer({
+    name: 'kavion-worker',
+    version: serverVersion,
+  });
+
+  server.registerTool(
+    'kavion_initialize_workspace',
+    {
+      description: 'Create the Kavion workspace state, rendered views, and Gemini hook settings.',
+      inputSchema: z.object({}).shape,
+    },
+    async () => text(await initializeWorkspace()),
+  );
+
+  server.registerTool(
+    'kavion_session_start',
+    {
+      description: 'Start or resume a Kavion session backed by SQLite state.',
+      inputSchema: z.object({
+        task: z.string().default(''),
+        agent: z.string().default('main'),
+        force_new: z.boolean().default(false),
+      }).shape,
+    },
+    async (payload) => text(await sessionStart(payload)),
+  );
+
+  server.registerTool(
+    'kavion_session_transition',
+    {
+      description: 'Transition the active Kavion session to a new phase.',
+      inputSchema: z.object({
+        to_phase: z.enum(['init', 'plan', 'code', 'test', 'review', 'ship', 'closed']),
         next_step: z.string().default(''),
-        blockers: z.string().default('none'),
-        summary: z.string().default(''),
-      })
-      .shape,
-  },
-  async (payload) => text(await writeCurrent(payload)),
-);
+        blocker: z.string().default(''),
+      }).shape,
+    },
+    async (payload) => text(await sessionTransition(payload)),
+  );
 
-server.registerTool(
-  'kavion_write_plan',
-  {
-    description: 'Write or replace a structured plan file under .kavion/plans/.',
-    inputSchema: z
-      .object({
+  server.registerTool(
+    'kavion_plan_create',
+    {
+      description: 'Create a plan artifact for the active session and persist it in SQLite + markdown.',
+      inputSchema: z.object({
         slug: z.string().optional(),
         title: z.string().default(''),
         goal: z.string().default(''),
@@ -1496,18 +1799,188 @@ server.registerTool(
         steps: z.array(z.string()).default([]),
         files: z.array(z.string()).default([]),
         risks: z.array(z.string()).default([]),
-      })
-      .shape,
-  },
-  async (payload) => text(await writePlan(payload)),
-);
+      }).shape,
+    },
+    async (payload) => text(await planCreate(payload)),
+  );
 
-server.registerTool(
-  'kavion_write_report',
-  {
-    description: 'Write or replace a structured report file under .kavion/reports/.',
-    inputSchema: z
-      .object({
+  server.registerTool(
+    'kavion_report_create',
+    {
+      description: 'Create a report artifact for the active session and persist it in SQLite + markdown.',
+      inputSchema: z.object({
+        kind: z.enum(['report:qa', 'report:review', 'report:security']),
+        title: z.string().default(''),
+        result: z.string().default(''),
+        summary: z.string().default(''),
+        evidence: z.array(z.string()).default([]),
+        files: z.array(z.string()).default([]),
+        commands: z.array(z.string()).default([]),
+        issues: z.array(z.string()).default([]),
+        verified: z.array(z.string()).default([]),
+      }).shape,
+    },
+    async (payload) => text(await reportCreate(payload)),
+  );
+
+  server.registerTool(
+    'kavion_status',
+    {
+      description: 'Return the current Kavion worker-backed session, git, and memory status.',
+      inputSchema: z.object({}).shape,
+    },
+    async () => text(await getStatus()),
+  );
+
+  server.registerTool(
+    'kavion_gate',
+    {
+      description: 'Run a Kavion gate using worker-managed state and real commands.',
+      inputSchema: z.object({
+        name: z.enum(['status', 'plan', 'test', 'review', 'security', 'ship']),
+      }).shape,
+    },
+    async ({ name }) => text(await runGate(name)),
+  );
+
+  server.registerTool(
+    'kavion_search',
+    {
+      description: 'Search Kavion memory using the local BM25 index.',
+      inputSchema: z.object({
+        query: z.string(),
+        top_k: z.number().int().min(1).max(10).default(5),
+      }).shape,
+    },
+    async ({ query, top_k }) => text(await searchIndex({ query, top_k })),
+  );
+
+  server.registerTool(
+    'kavion_read_chunk',
+    {
+      description: 'Read a specific indexed memory chunk by chunk id.',
+      inputSchema: z.object({ id: z.string() }).shape,
+    },
+    async ({ id }) => text(await readChunk(id)),
+  );
+
+  server.registerTool(
+    'kavion_migrate',
+    {
+      description: 'Preview or apply migration from file-first Kavion state into worker-backed SQLite state.',
+      inputSchema: z.object({ apply: z.boolean().default(false) }).shape,
+    },
+    async ({ apply }) => text(await migrate({ apply })),
+  );
+
+  server.registerTool(
+    'kavion_write_note',
+    {
+      description: 'Write a research/debug note under .kavion/notes and register it as an artifact when a session exists.',
+      inputSchema: z.object({
+        slug: z.string().optional(),
+        content: z.string(),
+        persistent: z.boolean().default(false),
+      }).shape,
+    },
+    async (payload) => text(await writeNote(payload)),
+  );
+
+  server.registerTool(
+    'kavion_build_index',
+    {
+      description: 'Rebuild the local BM25 search index.',
+      inputSchema: z.object({}).shape,
+    },
+    async () => text(await buildIndex()),
+  );
+
+  server.registerTool(
+    'kavion_memory_gc',
+    {
+      description: 'Prune expired notes and report oversized authored memory files.',
+      inputSchema: z.object({ delete_expired: z.boolean().default(true) }).shape,
+    },
+    async ({ delete_expired }) => text(await memoryGc({ delete_expired })),
+  );
+
+  server.registerTool(
+    'kavion_archive_session',
+    {
+      description: 'Close the active session and render a history view.',
+      inputSchema: z.object({ reason: z.string().default('completed') }).shape,
+    },
+    async ({ reason }) => text(await closeActiveSession(reason)),
+  );
+
+  server.registerTool(
+    'kavion_update_session',
+    {
+      description: 'Compatibility wrapper around the worker-backed session API.',
+      inputSchema: z.object({
+        task: z.string().optional(),
+        phase: z.string().optional(),
+        status: z.string().optional(),
+        active_agent: z.string().optional(),
+        blockers: z.string().optional(),
+        blocker: z.string().optional(),
+        next_step: z.string().optional(),
+        files_touched: z.array(z.string()).default([]),
+        agents_used: z.array(z.string()).default([]),
+      }).shape,
+    },
+    async (payload) => text(await updateSessionCompat(payload)),
+  );
+
+  server.registerTool(
+    'kavion_update_current',
+    {
+      description: 'Compatibility wrapper that updates session metadata and re-renders CURRENT.md.',
+      inputSchema: z.object({
+        active_task: z.string().default(''),
+        status: z.string().default(''),
+        next_step: z.string().default(''),
+        blockers: z.string().default('none'),
+        summary: z.string().default(''),
+      }).shape,
+    },
+    async ({ active_task, status, next_step, blockers }) => {
+      const session = activeSessionRow();
+      if (!session && active_task) {
+        await sessionStart({ task: active_task });
+      }
+      const result = await updateSessionCompat({
+        task: active_task || undefined,
+        status: status || undefined,
+        next_step: next_step || undefined,
+        blockers: blockers || undefined,
+      });
+      return text(result);
+    },
+  );
+
+  server.registerTool(
+    'kavion_write_plan',
+    {
+      description: 'Compatibility wrapper around kavion_plan_create.',
+      inputSchema: z.object({
+        slug: z.string().optional(),
+        title: z.string().default(''),
+        goal: z.string().default(''),
+        acceptance_criteria: z.array(z.string()).default([]),
+        steps: z.array(z.string()).default([]),
+        files: z.array(z.string()).default([]),
+        risks: z.array(z.string()).default([]),
+      }).shape,
+    },
+    async (payload) => text(await planCreate(payload)),
+  );
+
+  server.registerTool(
+    'kavion_write_report',
+    {
+      description: 'Compatibility wrapper around kavion_report_create.',
+      inputSchema: z.object({
         slug: z.string().optional(),
         kind: z.string(),
         title: z.string().default(''),
@@ -1518,108 +1991,31 @@ server.registerTool(
         commands: z.array(z.string()).default([]),
         issues: z.array(z.string()).default([]),
         verified: z.array(z.string()).default([]),
-      })
-      .shape,
-  },
-  async (payload) => text(await writeStructuredReport(payload)),
-);
+      }).shape,
+    },
+    async ({ kind, ...rest }) => {
+      const mappedKind = kind === 'qa' ? 'report:qa' : kind === 'review' ? 'report:review' : kind === 'security' ? 'report:security' : kind;
+      return text(await reportCreate({ kind: mappedKind, ...rest }));
+    },
+  );
 
-server.registerTool(
-  'kavion_archive_session',
-  {
-    description: 'Archive the live session into history.jsonl and reset session.json.',
-    inputSchema: z.object({ reason: z.string().default('completed') }).shape,
-  },
-  async ({ reason }) => text(await archiveSession(reason)),
-);
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
 
-server.registerTool(
-  'kavion_build_index',
-  {
-    description: 'Build or refresh the Kavion chunks.jsonl and bm25.json index files.',
-    inputSchema: z.object({}).shape,
-  },
-  async () => text(await buildIndex()),
-);
+const mode = process.argv[2] || 'mcp';
 
-server.registerTool(
-  'kavion_search',
-  {
-    description: 'Search Kavion project memory using the local BM25 index.',
-    inputSchema: z
-      .object({
-        query: z.string(),
-        top_k: z.number().int().min(1).max(10).default(5),
-      })
-      .shape,
-  },
-  async ({ query, top_k }) => text(await searchIndex({ query, top_k })),
-);
-
-server.registerTool(
-  'kavion_read_chunk',
-  {
-    description: 'Read a specific indexed memory chunk by chunk id.',
-    inputSchema: z.object({ id: z.string() }).shape,
-  },
-  async ({ id }) => text(await readChunk(id)),
-);
-
-server.registerTool(
-  'kavion_status',
-  {
-    description: 'Return the current Kavion session, git, and memory status.',
-    inputSchema: z.object({}).shape,
-  },
-  async () => text(await getStatus()),
-);
-
-server.registerTool(
-  'kavion_gate',
-  {
-    description: 'Run a Kavion gate using real command output and filesystem state.',
-    inputSchema: z
-      .object({
-        name: z.enum(['status', 'plan', 'test', 'review', 'security', 'ship']),
-        write_reports: z.boolean().default(false),
-      })
-      .shape,
-  },
-  async ({ name, write_reports }) => text(await runGate(name, { write_reports })),
-);
-
-server.registerTool(
-  'kavion_write_note',
-  {
-    description: 'Write a structured research/debug note under .kavion/notes with TTL enforcement.',
-    inputSchema: z
-      .object({
-        slug: z.string().optional(),
-        content: z.string(),
-        persistent: z.boolean().default(false),
-      })
-      .shape,
-  },
-  async ({ slug, content, persistent }) => text(await writeNote({ slug, content, persistent })),
-);
-
-server.registerTool(
-  'kavion_memory_gc',
-  {
-    description: 'Prune expired notes and report oversized Kavion memory files.',
-    inputSchema: z.object({ delete_expired: z.boolean().default(true) }).shape,
-  },
-  async ({ delete_expired }) => text(await memoryGc({ delete_expired })),
-);
-
-server.registerTool(
-  'kavion_migrate',
-  {
-    description: 'Preview or apply migration from the legacy ForgeKit memory layout to Kavion.',
-    inputSchema: z.object({ apply: z.boolean().default(false) }).shape,
-  },
-  async ({ apply }) => text(await migrate({ apply })),
-);
-
-const transport = new StdioServerTransport();
-await server.connect(transport);
+if (mode === 'hook') {
+  const eventName = process.argv[3] || '';
+  try {
+    const response = await runHook(eventName);
+    process.stdout.write(`${JSON.stringify(response || {})}\n`);
+    process.exit(0);
+  } catch (error) {
+    await logWorker('hook dispatcher failed', { event: eventName, error: String(error?.message || error) });
+    process.stdout.write(`${JSON.stringify(fallbackHookError('hook dispatcher failure'))}\n`);
+    process.exit(0);
+  }
+} else {
+  await startMcpServer();
+}

@@ -1,14 +1,14 @@
-# Kavion MCP
+# Kavion Worker + MCP
 
-Kavion uses an MCP server for workspace memory, search, migration, and real gates.
+Kavion uses a worker-backed MCP server for SQLite state, rendered views, search, migration, and real gates.
 
 ## Tools
 
 - `kavion_initialize_workspace`
-- `kavion_update_session`
-- `kavion_update_current`
-- `kavion_write_plan`
-- `kavion_write_report`
+- `kavion_session_start`
+- `kavion_session_transition`
+- `kavion_plan_create`
+- `kavion_report_create`
 - `kavion_archive_session`
 - `kavion_build_index`
 - `kavion_search`
@@ -19,6 +19,13 @@ Kavion uses an MCP server for workspace memory, search, migration, and real gate
 - `kavion_memory_gc`
 - `kavion_migrate`
 
+Compatibility wrappers remain available for the older command prompts:
+
+- `kavion_update_session`
+- `kavion_update_current`
+- `kavion_write_plan`
+- `kavion_write_report`
+
 ## Index
 
 The MCP server builds:
@@ -28,7 +35,7 @@ The MCP server builds:
 .kavion/index/bm25.json
 ```
 
-This replaces the older LanceDB/vector setup.
+This replaces the older file-first memory cache setup.
 
 ## Gates
 
@@ -56,3 +63,5 @@ From `mcp-server/`:
 npm install
 npm run check
 ```
+
+`/kavion:init-project` installs the minimal Gemini hook set into project `.gemini/settings.json` and points those hooks at the same worker entrypoint.

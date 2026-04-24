@@ -11,6 +11,11 @@
 
 # Gemini / local runtime state
 .gemini/
+.kavion/state.db
+.kavion/state.db-*
+.kavion/index/
+.kavion/worker.log
+.kavion/fallback.jsonl
 
 # Node
 node_modules/

@@ -12,21 +12,25 @@ Create or update these files if missing:
 - .kavion/DECISIONS-archive.md
 - .kavion/CURRENT.md
 - .kavion/session.json
-- .kavion/history.jsonl
+- .kavion/state.db
+- .kavion/history/
 - .kavion/gates.yaml
 - .kavion/plans/
 - .kavion/reports/
 - .kavion/notes/
 - .kavion/index/
+- .gemini/settings.json
 
 Rules:
 1. Do not overwrite existing useful content.
 2. Inspect the project enough to fill accurate starter notes.
 3. Keep PROJECT.md concise and repo-level.
 4. Root KAVION.md should auto-load only CURRENT.md.
-5. Do not include secrets.
-6. Use Kavion templates from the extension:
+5. Install Kavion hook settings into `.gemini/settings.json`.
+6. Do not include secrets.
+7. Use Kavion templates from the extension:
    - Memory files: kavion/templates/project-memory/kavion/
    - Root KAVION: kavion/templates/project-memory/KAVION.md
-7. After initialization, build the local BM25 index using MCP tool `kavion_build_index` when available. If MCP is not enabled, report `/kavion:memory-index` as the next command.
+8. After initialization, build the local BM25 index using MCP tool `kavion_build_index` when available. If MCP is not enabled, report `/kavion:memory-index` as the next command.
+9. Prefer MCP tool `kavion_initialize_workspace` so SQLite state, rendered views, and hook settings stay in sync.
 """

@@ -1,0 +1,16 @@
+description = "Start or resume the current Kavion session."
+
+prompt = """
+Start or resume a Kavion session for this task.
+
+User input:
+{{args}}
+
+Use MCP tool `kavion_session_start` when available.
+
+Rules:
+1. For non-trivial work, create or resume the worker-backed session before implementation.
+2. Do not hand-edit `.kavion/session.json`; it is rendered from `.kavion/state.db`.
+3. If no task title is supplied, resume the active session if one exists.
+4. After session start, read `.kavion/CURRENT.md` and continue from the recorded next step.
+"""

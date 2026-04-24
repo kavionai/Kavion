@@ -13,7 +13,8 @@ Kavion uses a smaller, stricter memory model.
   DECISIONS-archive.md
   CURRENT.md
   session.json
-  history.jsonl
+  state.db
+  history/
   gates.yaml
   plans/
   reports/
@@ -27,12 +28,16 @@ Kavion uses a smaller, stricter memory model.
 ## What Each File Does
 
 - `CURRENT.md`
-  - hot memory
-  - active task, status, blockers, next step
+  - rendered hot memory
+  - active task, class, phase, blockers, next step
 
 - `session.json`
-  - live structured task state
-  - phase, workflow, active agent, files touched, gate cache
+  - rendered structured session view
+  - sourced from `state.db`
+
+- `state.db`
+  - machine source of truth
+  - tasks, sessions, events, artifacts, gate runs
 
 - `PROJECT.md`
   - repo-level truths
@@ -41,8 +46,8 @@ Kavion uses a smaller, stricter memory model.
 - `DECISIONS.md`
   - durable technical decisions
 
-- `history.jsonl`
-  - archived sessions
+- `history/`
+  - rendered session history views
 
 - `plans/`
   - multi-step work plans
@@ -61,7 +66,8 @@ Kavion uses a smaller, stricter memory model.
 
 ## Rules
 
-- files are the source of truth
+- SQLite is the machine source of truth
+- rendered views are not hand-edited
 - the index is only a cache
 - read `CURRENT.md` first
 - read `PROJECT.md` and `DECISIONS.md` only when needed
@@ -99,8 +105,8 @@ Older Kavion projects may still have:
 ```text
 .gemini/context/
 .gemini/archive/
-.kavion/sessions/
-.kavion/memory/
+.kavion/session.json as direct state
+.kavion/history.jsonl
 ```
 
 Kavion can migrate those into the new structure with:

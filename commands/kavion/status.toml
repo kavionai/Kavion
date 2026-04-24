@@ -8,6 +8,7 @@ Use MCP tool `kavion_status` when available.
 Check:
 - `.kavion/CURRENT.md`
 - `.kavion/session.json`
+- `.kavion/state.db`
 - `.kavion/index/`
 - git branch and git status
 
