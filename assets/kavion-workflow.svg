@@ -1,12 +1,12 @@
-<svg width="1280" height="860" viewBox="0 0 1280 860" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">Kavion delivery workflow</title>
-  <desc id="desc">Professional workflow diagram for Kavion showing request intake, main agent coordination, working memory, real verification gates, and GitHub-ready output.</desc>
+<svg width="1280" height="920" viewBox="0 0 1280 920" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Kavion workflow</title>
+  <desc id="desc">Kavion workflow showing init, strict session bootstrap, planner-first execution, specialist delegation, worker-backed state, and evidence-driven gates.</desc>
 
-  <rect width="1280" height="860" fill="#F3F4F6"/>
+  <rect width="1280" height="920" fill="#F3F4F6"/>
 
   <defs>
     <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
-      <path d="M2 2L10 6L2 10Z" fill="#1F2937"/>
+      <path d="M2 2L10 6L2 10Z" fill="#111827"/>
     </marker>
     <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
       <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#111827" flood-opacity="0.08"/>
@@ -15,161 +15,164 @@
 
   <g transform="translate(64 52)">
     <text x="0" y="0" dominant-baseline="hanging" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="40" font-weight="850" fill="#111827">Kavion Workflow</text>
-    <text x="0" y="54" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="600" fill="#4B5563">Structured delivery path from developer request to honest ship decision.</text>
+    <text x="0" y="54" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="600" fill="#4B5563">Initialize once, bootstrap state before action, plan before code, delegate domain work, and let real evidence decide when a task can close.</text>
 
-    <g transform="translate(0 94)">
-      <rect width="1152" height="652" rx="8" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="2"/>
+    <g transform="translate(0 96)">
+      <rect width="1152" height="722" rx="8" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="2"/>
 
-      <g transform="translate(0 0)">
-        <rect width="1152" height="72" rx="8" fill="#111827"/>
-        <text x="28" y="45" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#FFFFFF">Execution Stages</text>
-        <g transform="translate(864 20)">
-          <rect width="92" height="30" rx="8" fill="#14B8A6"/>
-          <text x="46" y="20" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="800" fill="#082F49">hot</text>
-        </g>
-        <g transform="translate(966 20)">
-          <rect width="102" height="30" rx="8" fill="#F59E0B"/>
-          <text x="51" y="20" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="800" fill="#3F2A00">on-demand</text>
-        </g>
-        <g transform="translate(1078 20)">
-          <rect width="46" height="30" rx="8" fill="#F87171"/>
-          <text x="23" y="20" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="800" fill="#3F0A0A">gate</text>
-        </g>
+      <rect width="1152" height="72" rx="8" fill="#111827"/>
+      <text x="28" y="45" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#FFFFFF">Execution Flow</text>
+
+      <g transform="translate(862 20)">
+        <rect width="92" height="30" rx="8" fill="#14B8A6"/>
+        <text x="46" y="20" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="800" fill="#083344">state</text>
+      </g>
+      <g transform="translate(964 20)">
+        <rect width="80" height="30" rx="8" fill="#F59E0B"/>
+        <text x="40" y="20" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="800" fill="#451A03">flow</text>
+      </g>
+      <g transform="translate(1054 20)">
+        <rect width="76" height="30" rx="8" fill="#F87171"/>
+        <text x="38" y="20" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="800" fill="#450A0A">gates</text>
       </g>
 
-      <path d="M230 72V652" stroke="#E5E7EB" stroke-width="2"/>
-      <path d="M460 72V652" stroke="#E5E7EB" stroke-width="2"/>
-      <path d="M692 72V652" stroke="#E5E7EB" stroke-width="2"/>
-      <path d="M922 72V652" stroke="#E5E7EB" stroke-width="2"/>
+      <path d="M192 72V646" stroke="#E5E7EB" stroke-width="2"/>
+      <path d="M420 72V646" stroke="#E5E7EB" stroke-width="2"/>
+      <path d="M648 72V646" stroke="#E5E7EB" stroke-width="2"/>
+      <path d="M876 72V646" stroke="#E5E7EB" stroke-width="2"/>
 
-      <text x="28" y="102" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">01 REQUEST</text>
-      <text x="258" y="102" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">02 COORDINATE</text>
-      <text x="488" y="102" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">03 WORKING STATE</text>
-      <text x="720" y="102" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">04 VERIFY</text>
-      <text x="950" y="102" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">05 DELIVER</text>
+      <text x="28" y="104" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">00 INIT</text>
+      <text x="220" y="104" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">01 START / RESUME</text>
+      <text x="448" y="104" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">02 PLAN</text>
+      <text x="676" y="104" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">03 EXECUTE</text>
+      <text x="904" y="104" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">04 VERIFY / CLOSE</text>
 
-      <g transform="translate(28 130)" filter="url(#shadow)">
-        <rect width="174" height="112" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
-        <rect width="174" height="8" rx="8" fill="#14B8A6"/>
-        <text x="18" y="38" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">Developer Task</text>
-        <text x="18" y="66" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Feature, bug, migration,</text>
-        <text x="18" y="86" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">or quality checkpoint.</text>
+      <g transform="translate(28 132)" filter="url(#shadow)">
+        <rect width="136" height="146" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
+        <rect width="136" height="8" rx="8" fill="#F59E0B"/>
+        <text x="16" y="36" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="850" fill="#111827">/kavion:init-project</text>
+        <text x="16" y="64" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">Creates .kavion,</text>
+        <text x="16" y="84" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">state.db, rendered</text>
+        <text x="16" y="104" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">views, and minimal</text>
+        <text x="16" y="124" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">Gemini hooks.</text>
       </g>
 
-      <g transform="translate(28 278)" filter="url(#shadow)">
-        <rect width="174" height="126" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
-        <text x="18" y="34" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="850" fill="#111827">Command Surface</text>
-        <text x="18" y="60" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">/kavion:feature</text>
-        <text x="18" y="82" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">/kavion:fix-issue</text>
-        <text x="18" y="104" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">/kavion:gate ship</text>
+      <g transform="translate(220 132)" filter="url(#shadow)">
+        <rect width="172" height="146" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
+        <rect width="172" height="8" rx="8" fill="#F59E0B"/>
+        <text x="18" y="36" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">/kavion:start</text>
+        <text x="18" y="64" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Bootstrap only.</text>
+        <text x="18" y="86" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Open session, classify,</text>
+        <text x="18" y="106" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">set next step, then stop.</text>
+        <text x="18" y="128" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">No implementation.</text>
       </g>
 
-      <g transform="translate(258 130)" filter="url(#shadow)">
-        <rect width="174" height="132" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
-        <rect width="174" height="8" rx="8" fill="#14B8A6"/>
-        <text x="18" y="38" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">Main Agent</text>
-        <text x="18" y="66" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Reads CURRENT.md first,</text>
-        <text x="18" y="86" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">classifies the work,</text>
-        <text x="18" y="106" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">and controls delegation.</text>
+      <g transform="translate(220 304)" filter="url(#shadow)">
+        <rect width="172" height="126" rx="8" fill="#ECFEFF" stroke="#99F6E4" stroke-width="1.5"/>
+        <text x="18" y="34" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="850" fill="#111827">/kavion:status</text>
+        <text x="18" y="60" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Confirms workspace,</text>
+        <text x="18" y="80" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">phase, blockers, and</text>
+        <text x="18" y="100" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">required specialists.</text>
       </g>
 
-      <g transform="translate(258 300)" filter="url(#shadow)">
-        <rect width="174" height="170" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
-        <text x="18" y="34" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="850" fill="#111827">Specialists</text>
-        <text x="18" y="62" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">Frontend</text>
-        <text x="18" y="84" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">Backend</text>
-        <text x="18" y="106" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">Database</text>
-        <text x="18" y="128" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">QA / Review</text>
-        <text x="18" y="150" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">Security / Docs</text>
+      <g transform="translate(220 456)" filter="url(#shadow)">
+        <rect width="172" height="110" rx="8" fill="#ECFEFF" stroke="#99F6E4" stroke-width="1.5"/>
+        <text x="18" y="34" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="850" fill="#111827">/kavion:resume</text>
+        <text x="18" y="60" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Reattaches to the</text>
+        <text x="18" y="80" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">active session later.</text>
       </g>
 
-      <g transform="translate(488 130)" filter="url(#shadow)">
-        <rect width="174" height="118" rx="8" fill="#ECFEFF" stroke="#99F6E4" stroke-width="1.5"/>
-        <rect width="174" height="8" rx="8" fill="#14B8A6"/>
-        <text x="18" y="38" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">Hot Memory</text>
-        <text x="18" y="66" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">CURRENT.md</text>
-        <text x="18" y="88" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">session.json</text>
+      <g transform="translate(448 132)" filter="url(#shadow)">
+        <rect width="172" height="146" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
+        <rect width="172" height="8" rx="8" fill="#F59E0B"/>
+        <text x="18" y="36" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">/kavion:feature</text>
+        <text x="18" y="64" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Execution starts here.</text>
+        <text x="18" y="86" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Planner first, then the</text>
+        <text x="18" y="106" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">required specialists.</text>
+        <text x="18" y="128" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">Code phase is gated.</text>
       </g>
 
-      <g transform="translate(488 284)" filter="url(#shadow)">
-        <rect width="174" height="118" rx="8" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.5"/>
-        <rect width="174" height="8" rx="8" fill="#F59E0B"/>
-        <text x="18" y="38" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">On-demand</text>
-        <text x="18" y="66" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">PROJECT.md</text>
-        <text x="18" y="88" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">DECISIONS.md</text>
+      <g transform="translate(448 304)" filter="url(#shadow)">
+        <rect width="172" height="132" rx="8" fill="#ECFEFF" stroke="#99F6E4" stroke-width="1.5"/>
+        <text x="18" y="34" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="850" fill="#111827">Worker State</text>
+        <text x="18" y="60" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">state.db</text>
+        <text x="18" y="82" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">task, session, phase,</text>
+        <text x="18" y="102" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">events, artifacts, gates</text>
       </g>
 
-      <g transform="translate(488 438)" filter="url(#shadow)">
-        <rect width="174" height="160" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
-        <text x="18" y="34" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="850" fill="#111827">Working Files</text>
-        <text x="18" y="62" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">plans/</text>
-        <text x="18" y="84" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">reports/</text>
-        <text x="18" y="106" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">notes/</text>
-        <text x="18" y="128" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">history.jsonl</text>
+      <g transform="translate(448 462)" filter="url(#shadow)">
+        <rect width="172" height="104" rx="8" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="1.5"/>
+        <text x="18" y="34" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="850" fill="#111827">BeforeAgent</text>
+        <text x="18" y="60" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Blocks `plan -&gt; code`</text>
+        <text x="18" y="80" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">until a plan exists.</text>
       </g>
 
-      <g transform="translate(718 130)" filter="url(#shadow)">
-        <rect width="174" height="126" rx="8" fill="#EEF2FF" stroke="#C7D2FE" stroke-width="1.5"/>
-        <text x="18" y="38" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">Local Search</text>
-        <text x="18" y="66" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">chunks.jsonl</text>
-        <text x="18" y="88" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">bm25.json</text>
-        <text x="18" y="108" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">search before full reads</text>
+      <g transform="translate(676 132)" filter="url(#shadow)">
+        <rect width="172" height="176" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
+        <rect width="172" height="8" rx="8" fill="#F59E0B"/>
+        <text x="18" y="36" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">Coordinator</text>
+        <text x="18" y="64" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Main agent owns session</text>
+        <text x="18" y="84" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">state and synthesis.</text>
+        <text x="18" y="114" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">Not the primary</text>
+        <text x="18" y="134" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">implementer for normal</text>
+        <text x="18" y="154" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">backend/domain work.</text>
       </g>
 
-      <g transform="translate(718 300)" filter="url(#shadow)">
-        <rect width="174" height="134" rx="8" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="1.5"/>
-        <rect width="174" height="8" rx="8" fill="#F87171"/>
-        <text x="18" y="38" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">Real Gates</text>
-        <text x="18" y="66" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">plan</text>
-        <text x="56" y="66" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">test</text>
-        <text x="18" y="88" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">review</text>
-        <text x="70" y="88" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">security</text>
-        <text x="18" y="110" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">ship</text>
+      <g transform="translate(676 334)" filter="url(#shadow)">
+        <rect width="172" height="232" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
+        <text x="18" y="34" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="850" fill="#111827">Required Specialists</text>
+        <text x="18" y="64" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">task-planner</text>
+        <text x="18" y="88" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">backend-engineer</text>
+        <text x="18" y="112" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">database-engineer</text>
+        <text x="18" y="136" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">security-engineer</text>
+        <text x="18" y="160" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">qa-test-engineer</text>
+        <text x="18" y="184" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">code-reviewer</text>
+        <text x="18" y="212" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">Set by worker policy from</text>
+        <text x="18" y="230" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">task class and scope.</text>
       </g>
 
-      <g transform="translate(718 470)" filter="url(#shadow)">
-        <rect width="174" height="128" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
-        <text x="18" y="34" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="850" fill="#111827">Gate Inputs</text>
-        <text x="18" y="62" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">command exit codes</text>
-        <text x="18" y="84" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">report freshness</text>
-        <text x="18" y="106" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">git state and branch</text>
+      <g transform="translate(904 132)" filter="url(#shadow)">
+        <rect width="192" height="150" rx="8" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="1.5"/>
+        <rect width="192" height="8" rx="8" fill="#F87171"/>
+        <text x="18" y="36" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">Gate Evidence</text>
+        <text x="18" y="64" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">real command exits, git</text>
+        <text x="18" y="84" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">state, fresh reports, and</text>
+        <text x="18" y="104" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">worker-backed artifacts</text>
+        <text x="18" y="128" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">No self-reported done.</text>
       </g>
 
-      <g transform="translate(948 130)" filter="url(#shadow)">
-        <rect width="176" height="118" rx="8" fill="#F0FDF4" stroke="#86EFAC" stroke-width="1.5"/>
-        <text x="18" y="38" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">Ready</text>
-        <text x="18" y="66" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">clean git state</text>
-        <text x="18" y="88" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">reports and gates pass</text>
+      <g transform="translate(904 308)" filter="url(#shadow)">
+        <rect width="192" height="122" rx="8" fill="#F0FDF4" stroke="#86EFAC" stroke-width="1.5"/>
+        <text x="18" y="34" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="850" fill="#111827">Rendered Views</text>
+        <text x="18" y="60" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">CURRENT.md</text>
+        <text x="18" y="82" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">session.json</text>
+        <text x="18" y="104" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">history/*.md</text>
       </g>
 
-      <g transform="translate(948 284)" filter="url(#shadow)">
-        <rect width="176" height="118" rx="8" fill="#FFF7ED" stroke="#FDBA74" stroke-width="1.5"/>
-        <text x="18" y="38" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">Not Ready</text>
-        <text x="18" y="66" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">explicit next command</text>
-        <text x="18" y="88" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">no false completion</text>
+      <g transform="translate(904 456)" filter="url(#shadow)">
+        <rect width="192" height="110" rx="8" fill="#EEF2FF" stroke="#C7D2FE" stroke-width="1.5"/>
+        <text x="18" y="34" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="850" fill="#111827">AfterTool</text>
+        <text x="18" y="60" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Logs events after work,</text>
+        <text x="18" y="80" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">keeps session state fresh.</text>
       </g>
 
-      <g transform="translate(948 438)" filter="url(#shadow)">
-        <rect width="176" height="160" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
-        <text x="18" y="34" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="850" fill="#111827">Delivery Outputs</text>
-        <text x="18" y="62" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">branch ready</text>
-        <text x="18" y="84" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">PR-ready summary</text>
-        <text x="18" y="106" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">archivable session</text>
-        <text x="18" y="128" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">updated memory</text>
-      </g>
+      <path d="M164 205H212" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M392 205H440" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M620 205H668" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M848 205H896" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
 
-      <path d="M202 186H248" stroke="#1F2937" stroke-width="2" marker-end="url(#arrow)"/>
-      <path d="M432 186H478" stroke="#1F2937" stroke-width="2" marker-end="url(#arrow)"/>
-      <path d="M662 186H708" stroke="#1F2937" stroke-width="2" marker-end="url(#arrow)"/>
-      <path d="M892 186H938" stroke="#1F2937" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M306 278V304" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M306 430V456" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M534 278V304" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M534 436V462" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M762 308V334" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M1000 282V308" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M1000 430V456" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
 
-      <path d="M345 470C345 502 400 520 478 520" stroke="#1F2937" stroke-width="2" marker-end="url(#arrow)"/>
-      <path d="M662 520H708" stroke="#1F2937" stroke-width="2" marker-end="url(#arrow)"/>
-      <path d="M892 350H938" stroke="#1F2937" stroke-width="2" marker-end="url(#arrow)"/>
-
-      <g transform="translate(28 612)">
-        <rect width="1096" height="22" rx="8" fill="#F9FAFB"/>
-        <text x="0" y="16" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="700" fill="#6B7280">Design note: simplified stages, consistent labels, and explicit gate evidence reduce the “AI-generated” look and make the diagram read like product documentation.</text>
+      <g transform="translate(28 674)">
+        <rect width="1096" height="72" rx="8" fill="#111827"/>
+        <text x="24" y="28" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="800" fill="#FFFFFF">Expected sequence</text>
+        <text x="24" y="52" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#D1D5DB">/kavion:init-project -&gt; /kavion:start -&gt; /kavion:status or /kavion:resume -&gt; /kavion:feature -&gt; plan artifact -&gt; specialist execution -&gt; reports and gates -&gt; archive</text>
       </g>
     </g>
   </g>
