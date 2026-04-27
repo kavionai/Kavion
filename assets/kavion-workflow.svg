@@ -1,8 +1,8 @@
-<svg width="1280" height="920" viewBox="0 0 1280 920" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+<svg width="1280" height="960" viewBox="0 0 1280 960" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
   <title id="title">Kavion workflow</title>
   <desc id="desc">Kavion workflow showing init, strict session bootstrap, planner-first execution, specialist delegation, worker-backed state, and evidence-driven gates.</desc>
 
-  <rect width="1280" height="920" fill="#F3F4F6"/>
+  <rect width="1280" height="960" fill="#F3F4F6"/>
 
   <defs>
     <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
@@ -18,7 +18,7 @@
     <text x="0" y="54" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="600" fill="#4B5563">Initialize once, bootstrap state before action, plan before code, delegate domain work, and let real evidence decide when a task can close.</text>
 
     <g transform="translate(0 96)">
-      <rect width="1152" height="722" rx="8" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="2"/>
+      <rect width="1152" height="762" rx="8" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="2"/>
 
       <rect width="1152" height="72" rx="8" fill="#111827"/>
       <text x="28" y="45" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#FFFFFF">Execution Flow</text>
@@ -47,14 +47,15 @@
       <text x="676" y="104" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">03 EXECUTE</text>
       <text x="904" y="104" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">04 VERIFY / CLOSE</text>
 
-      <g transform="translate(28 132)" filter="url(#shadow)">
-        <rect width="136" height="146" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
-        <rect width="136" height="8" rx="8" fill="#F59E0B"/>
-        <text x="16" y="36" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="850" fill="#111827">/kavion:init-project</text>
-        <text x="16" y="64" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">Creates .kavion,</text>
-        <text x="16" y="84" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">state.db, rendered</text>
-        <text x="16" y="104" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">views, and minimal</text>
-        <text x="16" y="124" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">Gemini hooks.</text>
+      <g transform="translate(24 132)" filter="url(#shadow)">
+        <rect width="148" height="162" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
+        <rect width="148" height="8" rx="8" fill="#F59E0B"/>
+        <text x="16" y="34" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="850" fill="#111827">/kavion:</text>
+        <text x="16" y="54" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="850" fill="#111827">init-project</text>
+        <text x="16" y="82" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">Creates .kavion,</text>
+        <text x="16" y="102" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">state.db, rendered</text>
+        <text x="16" y="122" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">views, and minimal</text>
+        <text x="16" y="142" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">Gemini hooks.</text>
       </g>
 
       <g transform="translate(220 132)" filter="url(#shadow)">
@@ -119,7 +120,7 @@
       </g>
 
       <g transform="translate(676 334)" filter="url(#shadow)">
-        <rect width="172" height="232" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
+        <rect width="172" height="248" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
         <text x="18" y="34" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="850" fill="#111827">Required Specialists</text>
         <text x="18" y="64" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">task-planner</text>
         <text x="18" y="88" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">backend-engineer</text>
@@ -127,8 +128,9 @@
         <text x="18" y="136" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">security-engineer</text>
         <text x="18" y="160" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">qa-test-engineer</text>
         <text x="18" y="184" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">code-reviewer</text>
-        <text x="18" y="212" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">Set by worker policy from</text>
-        <text x="18" y="230" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">task class and scope.</text>
+        <text x="18" y="216" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">Set by worker policy</text>
+        <text x="18" y="234" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">from task class</text>
+        <text x="18" y="252" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600" fill="#4B5563">and scope.</text>
       </g>
 
       <g transform="translate(904 132)" filter="url(#shadow)">
@@ -169,10 +171,11 @@
       <path d="M1000 282V308" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
       <path d="M1000 430V456" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
 
-      <g transform="translate(28 674)">
-        <rect width="1096" height="72" rx="8" fill="#111827"/>
+      <g transform="translate(28 698)">
+        <rect width="1096" height="84" rx="8" fill="#111827"/>
         <text x="24" y="28" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="800" fill="#FFFFFF">Expected sequence</text>
-        <text x="24" y="52" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#D1D5DB">/kavion:init-project -&gt; /kavion:start -&gt; /kavion:status or /kavion:resume -&gt; /kavion:feature -&gt; plan artifact -&gt; specialist execution -&gt; reports and gates -&gt; archive</text>
+        <text x="24" y="50" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#D1D5DB">/kavion:init-project -&gt; /kavion:start -&gt; /kavion:status or /kavion:resume -&gt; /kavion:feature</text>
+        <text x="24" y="70" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#D1D5DB">-&gt; plan artifact -&gt; specialist execution -&gt; reports and gates -&gt; archive</text>
       </g>
     </g>
   </g>

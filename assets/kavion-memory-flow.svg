@@ -1,8 +1,8 @@
-<svg width="1280" height="940" viewBox="0 0 1280 940" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+<svg width="1280" height="980" viewBox="0 0 1280 980" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
   <title id="title">Kavion memory architecture</title>
   <desc id="desc">Kavion memory architecture showing the local worker and Gemini hooks around SQLite machine truth, rendered views, human-authored memory, artifacts, and rebuildable search cache.</desc>
 
-  <rect width="1280" height="940" fill="#F3F4F6"/>
+  <rect width="1280" height="980" fill="#F3F4F6"/>
 
   <defs>
     <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
@@ -18,7 +18,7 @@
     <text x="0" y="54" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="600" fill="#4B5563">Local-first memory with worker-owned state, git-tracked human memory, rendered hot views, and a rebuildable search cache.</text>
 
     <g transform="translate(0 96)">
-      <rect width="1152" height="734" rx="8" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="2"/>
+      <rect width="1152" height="774" rx="8" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="2"/>
 
       <rect width="1152" height="72" rx="8" fill="#111827"/>
       <text x="28" y="45" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#FFFFFF">Memory Layers</text>
@@ -39,38 +39,41 @@
       <text x="28" y="104" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">LOCAL RUNTIME</text>
 
       <g transform="translate(28 132)" filter="url(#shadow)">
-        <rect width="342" height="154" rx="8" fill="#EEF2FF" stroke="#C7D2FE" stroke-width="1.5"/>
+        <rect width="342" height="170" rx="8" fill="#EEF2FF" stroke="#C7D2FE" stroke-width="1.5"/>
         <rect width="342" height="8" rx="8" fill="#6366F1"/>
         <text x="20" y="40" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="850" fill="#111827">Gemini + local Kavion worker</text>
         <text x="20" y="72" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Gemini starts the worker inside the active project workspace.</text>
-        <text x="20" y="100" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">KAVION_WORKSPACE_PATH=${workspacePath}</text>
-        <text x="20" y="126" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Vendored MCP runtime keeps installed copies bootable without local npm install.</text>
+        <text x="20" y="100" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">KAVION_WORKSPACE_PATH</text>
+        <text x="20" y="120" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">=&gt; ${workspacePath}</text>
+        <text x="20" y="146" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Vendored MCP runtime keeps installed copies bootable without local npm install.</text>
       </g>
 
       <g transform="translate(398 132)" filter="url(#shadow)">
-        <rect width="332" height="154" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
+        <rect width="332" height="170" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
         <text x="20" y="40" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="850" fill="#111827">Hooks call the worker</text>
         <text x="20" y="72" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">SessionStart</text>
         <text x="140" y="72" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">load hot context</text>
         <text x="20" y="98" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">BeforeAgent</text>
         <text x="140" y="98" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">enforce plan-before-code</text>
         <text x="20" y="124" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">AfterTool</text>
-        <text x="140" y="124" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">append events and refresh views</text>
+        <text x="140" y="124" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">append events and</text>
+        <text x="140" y="144" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">refresh views</text>
       </g>
 
       <g transform="translate(758 132)" filter="url(#shadow)">
-        <rect width="366" height="154" rx="8" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.5"/>
+        <rect width="366" height="170" rx="8" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.5"/>
         <text x="20" y="40" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="850" fill="#111827">No remote memory service</text>
         <text x="20" y="72" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Kavion stores project state on disk in the repo workspace.</text>
         <text x="20" y="100" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">local worker</text>
         <text x="128" y="100" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">local SQLite</text>
         <text x="244" y="100" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">local files</text>
-        <text x="20" y="126" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">The network path is Gemini itself, not a hosted Kavion backend.</text>
+        <text x="20" y="128" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">The network path is Gemini itself,</text>
+        <text x="20" y="148" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">not a hosted Kavion backend.</text>
       </g>
 
-      <text x="28" y="324" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">LAYER 1 - MACHINE TRUTH</text>
+      <text x="28" y="340" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">LAYER 1 - MACHINE TRUTH</text>
 
-      <g transform="translate(28 352)" filter="url(#shadow)">
+      <g transform="translate(28 368)" filter="url(#shadow)">
         <rect width="420" height="186" rx="8" fill="#ECFEFF" stroke="#99F6E4" stroke-width="1.5"/>
         <rect width="420" height="8" rx="8" fill="#14B8A6"/>
         <text x="20" y="40" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="850" fill="#111827">.kavion/state.db</text>
@@ -86,8 +89,8 @@
         <text x="20" y="160" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Rendered files are outputs. Direct writes to those paths should be blocked by policy.</text>
       </g>
 
-      <g transform="translate(476 352)" filter="url(#shadow)">
-        <rect width="648" height="186" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
+      <g transform="translate(476 368)" filter="url(#shadow)">
+        <rect width="648" height="198" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
         <text x="20" y="40" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="850" fill="#111827">Worker APIs that mutate truth</text>
         <text x="20" y="74" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">session_start</text>
         <text x="176" y="74" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">session_transition</text>
@@ -98,12 +101,13 @@
         <text x="224" y="102" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">update_session</text>
         <text x="372" y="102" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">write_note</text>
         <text x="492" y="102" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700" fill="#111827">archive_session</text>
-        <text x="20" y="136" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">These calls update SQLite, then enqueue render and index work. The model should not treat `CURRENT.md` or `session.json` as editable state files.</text>
+        <text x="20" y="138" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">These calls update SQLite, then enqueue render and index work.</text>
+        <text x="20" y="158" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">The model should not treat `CURRENT.md` or `session.json` as editable state files.</text>
       </g>
 
-      <text x="28" y="576" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">LAYER 2 - FILES IN THE REPO</text>
+      <text x="28" y="604" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">LAYER 2 - FILES IN THE REPO</text>
 
-      <g transform="translate(28 604)" filter="url(#shadow)">
+      <g transform="translate(28 632)" filter="url(#shadow)">
         <rect width="216" height="150" rx="8" fill="#F0FDF4" stroke="#86EFAC" stroke-width="1.5"/>
         <text x="18" y="38" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">Rendered Hot Views</text>
         <text x="18" y="68" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700" fill="#111827">CURRENT.md</text>
@@ -111,7 +115,7 @@
         <text x="18" y="118" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Cheap to read. Never the source of truth.</text>
       </g>
 
-      <g transform="translate(272 604)" filter="url(#shadow)">
+      <g transform="translate(272 632)" filter="url(#shadow)">
         <rect width="236" height="150" rx="8" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.5"/>
         <text x="18" y="38" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">Primary Human Memory</text>
         <text x="18" y="68" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700" fill="#111827">KAVION.md</text>
@@ -119,7 +123,7 @@
         <text x="18" y="116" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700" fill="#111827">DECISIONS.md</text>
       </g>
 
-      <g transform="translate(536 604)" filter="url(#shadow)">
+      <g transform="translate(536 632)" filter="url(#shadow)">
         <rect width="276" height="150" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
         <text x="18" y="38" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">Artifacts and history</text>
         <text x="18" y="68" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700" fill="#111827">plans/*.md</text>
@@ -127,7 +131,7 @@
         <text x="18" y="116" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700" fill="#111827">history/*.md</text>
       </g>
 
-      <g transform="translate(840 604)" filter="url(#shadow)">
+      <g transform="translate(840 632)" filter="url(#shadow)">
         <rect width="284" height="150" rx="8" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
         <text x="18" y="38" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">Optional notes</text>
         <text x="18" y="68" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700" fill="#111827">notes/*.md</text>
@@ -135,20 +139,20 @@
         <text x="18" y="118" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Can expire without affecting machine truth.</text>
       </g>
 
-      <text x="28" y="792" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">LAYER 3 - SEARCH CACHE</text>
+      <text x="28" y="820" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="800" fill="#6B7280">LAYER 3 - SEARCH CACHE</text>
 
-      <g transform="translate(28 820)" filter="url(#shadow)">
+      <g transform="translate(28 848)" filter="url(#shadow)">
         <rect width="1096" height="76" rx="8" fill="#EEF2FF" stroke="#C7D2FE" stroke-width="1.5"/>
         <rect width="1096" height="8" rx="8" fill="#A78BFA"/>
         <text x="20" y="36" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="850" fill="#111827">index/chunks.jsonl + index/bm25.json</text>
         <text x="20" y="62" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="600" fill="#4B5563">Cache only. Built locally from known memory and artifacts so the model can search first and open specific files only when needed.</text>
       </g>
 
-      <path d="M478 444L462 444" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
-      <path d="M238 538V594" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
-      <path d="M390 538V594" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
-      <path d="M674 538V594" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
-      <path d="M980 538V594" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M478 460L462 460" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M238 554V622" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M390 554V622" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M674 566V622" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M980 554V622" stroke="#111827" stroke-width="2" marker-end="url(#arrow)"/>
     </g>
   </g>
 </svg>
