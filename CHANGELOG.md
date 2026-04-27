@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2 - 2026-04-27
+
+- Fixed the extension MCP server to bind to the active Gemini workspace using `${workspacePath}`.
+- Added explicit `KAVION_WORKSPACE_PATH` injection in the manifest so worker-backed `.kavion/*` files are created in the real project, not the extension install directory.
+
 ## 0.2.1 - 2026-04-25
 
 - Fixed extension MCP packaging so Gemini can launch the installed worker from a root-level dependency install.

@@ -10,7 +10,7 @@ import { spawn } from 'node:child_process';
 import MiniSearch from 'minisearch';
 import YAML from 'yaml';
 
-const serverVersion = '0.2.1';
+const serverVersion = '0.2.2';
 
 const modulePath = fileURLToPath(import.meta.url);
 const serverDir = path.dirname(modulePath);
