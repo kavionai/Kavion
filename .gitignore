@@ -21,6 +21,10 @@ mcp-server/.kavion/
 
 # Node
 node_modules/
+!vendor/
+!vendor/mcp-runtime/
+!vendor/mcp-runtime/node_modules/
+!vendor/mcp-runtime/node_modules/**
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

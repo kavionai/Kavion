@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3 - 2026-04-27
+
+- Fixed installed-extension MCP startup by vendoring the worker runtime inside the repo.
+- Removed the runtime dependency on `node_modules` under `~/.gemini/extensions/kavion`.
+- Kept the workspace-path binding from `0.2.2` so installed copies start in the real project workspace.
+
 ## 0.2.2 - 2026-04-27
 
 - Fixed the extension MCP server to bind to the active Gemini workspace using `${workspacePath}`.

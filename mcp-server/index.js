@@ -1,16 +1,16 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { McpServer } from '../vendor/mcp-runtime/node_modules/@modelcontextprotocol/sdk/dist/esm/server/mcp.js';
+import { StdioServerTransport } from '../vendor/mcp-runtime/node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js';
 import { DatabaseSync } from 'node:sqlite';
-import { z } from 'zod';
+import { z } from '../vendor/mcp-runtime/node_modules/zod/index.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
-import MiniSearch from 'minisearch';
-import YAML from 'yaml';
+import MiniSearch from '../vendor/mcp-runtime/node_modules/minisearch/dist/es/index.js';
+import YAML from '../vendor/mcp-runtime/node_modules/yaml/dist/index.js';
 
-const serverVersion = '0.2.2';
+const serverVersion = '0.2.3';
 
 const modulePath = fileURLToPath(import.meta.url);
 const serverDir = path.dirname(modulePath);
