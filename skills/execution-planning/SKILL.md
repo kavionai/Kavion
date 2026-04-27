@@ -17,6 +17,7 @@ Use this skill when work needs more than one step or more than one specialist.
 7. For Standard or multi-phase work, persist the plan under `.kavion/plans/` before implementation.
 8. Prefer MCP tool `kavion_write_plan` when available.
 9. Do not keep the only copy of the plan in chat text.
+10. For Standard work, the main agent is the coordinator; primary implementation should be handed to the selected specialists.
 
 ## Agent selection
 
@@ -43,3 +44,5 @@ Return:
 - Verification plan
 - Risks
 - Plan file path, when persisted
+
+For backend + database scope in the same task, both `backend-engineer` and `database-engineer` should be used unless the change is truly trivial.

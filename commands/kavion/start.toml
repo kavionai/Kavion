@@ -9,8 +9,18 @@ User input:
 Use MCP tool `kavion_session_start` when available.
 
 Rules:
-1. For non-trivial work, create or resume the worker-backed session before implementation.
-2. Do not hand-edit `.kavion/session.json`; it is rendered from `.kavion/state.db`.
-3. If no task title is supplied, resume the active session if one exists.
-4. After session start, read `.kavion/CURRENT.md` and continue from the recorded next step.
+1. This command is session bootstrap only. Do not implement the task.
+2. Call `kavion_session_start` and then `kavion_status`.
+3. Do not hand-edit `.kavion/session.json`; it is rendered from `.kavion/state.db`.
+4. If no task title is supplied, resume the active session if one exists.
+5. Do not delegate to specialist agents.
+6. Do not create plan, report, or note artifacts in this command.
+7. Do not run project build/test commands unless the user explicitly asked for that here.
+8. Final response must only include:
+   - whether the session was started or resumed
+   - task class
+   - current phase
+   - next step
+   - required specialists
+   - which follow-up command to run next (`/kavion:feature`, `/kavion:fix-issue`, or `/kavion:resume`)
 """

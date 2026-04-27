@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.4 - 2026-04-27
+
+- Fixed `/kavion:start` so it is a strict session-bootstrap flow rather than an implementation command.
+- Tightened standard-work orchestration so medium and larger feature flows require planner-led setup and specialist delegation policy in hot context.
+- Added required-specialist guidance to rendered session state and post-plan next steps.
+
 ## 0.2.3 - 2026-04-27
 
 - Fixed installed-extension MCP startup by vendoring the worker runtime inside the repo.

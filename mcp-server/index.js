@@ -10,7 +10,7 @@ import { spawn } from 'node:child_process';
 import MiniSearch from '../vendor/mcp-runtime/node_modules/minisearch/dist/es/index.js';
 import YAML from '../vendor/mcp-runtime/node_modules/yaml/dist/index.js';
 
-const serverVersion = '0.2.3';
+const serverVersion = '0.2.4';
 
 const modulePath = fileURLToPath(import.meta.url);
 const serverDir = path.dirname(modulePath);
@@ -466,6 +466,54 @@ function classifyTask(task) {
   return 'medium';
 }
 
+function inferRequiredSpecialists(task, taskClass = classifyTask(task)) {
+  if (taskClass === 'trivial') return [];
+
+  const text = String(task || '').toLowerCase();
+  const required = new Set(['task-planner']);
+
+  if (/\b(nest|nestjs|express|backend|server|api|controller|service|route|endpoint|jwt|auth|authentication|authorization|rbac|role[- ]based|permission|swagger|openapi)\b/.test(text)) {
+    required.add('backend-engineer');
+  }
+
+  if (/\b(database|schema|migration|query|orm|prisma|typeorm|postgres|mysql|sqlite|warehouse|inventory|stock|supplier|purchase order|purchase orders|audit log|audit logs|persistence)\b/.test(text)) {
+    required.add('database-engineer');
+  }
+
+  if (/\b(auth|authentication|authorization|rbac|role[- ]based|permission|secret|token|jwt|payment|user data|pii)\b/.test(text)) {
+    required.add('security-engineer');
+  }
+
+  required.add('qa-test-engineer');
+  required.add('code-reviewer');
+  return [...required];
+}
+
+function isStartWorkflowPrompt(prompt) {
+  return prompt.includes('Start or resume a Kavion session for this task.');
+}
+
+function isExecutionWorkflowPrompt(prompt) {
+  return (
+    prompt.includes('Use the Kavion feature workflow.') ||
+    prompt.includes('Use the Kavion orchestration workflow.') ||
+    prompt.includes('Use the Kavion bug-fix workflow.')
+  );
+}
+
+function specialistPolicyText(task, taskClass) {
+  const required = inferRequiredSpecialists(task, taskClass);
+  if (!required.length) return '';
+  const primary = required.filter((agent) => !['qa-test-engineer', 'code-reviewer'].includes(agent));
+  return [
+    `Kavion required specialists for this task: ${required.join(', ')}.`,
+    primary.length
+      ? `The main agent must delegate primary implementation to: ${primary.join(', ')}.`
+      : 'The main agent may keep implementation local only if the task remains trivial.',
+    'The main agent owns orchestration, shared state, phase transitions, and final synthesis.',
+  ].join('\n');
+}
+
 function currentGeminiSessionId() {
   return process.env.GEMINI_SESSION_ID || '';
 }
@@ -613,6 +661,7 @@ async function renderSessionViews() {
   const events = recentEvents(session.session_id, 5);
   const filesTouched = sessionFilesTouched(session.session_id);
   const agentsUsed = sessionAgentsUsed(session.session_id);
+  const requiredSpecialists = inferRequiredSpecialists(session.task, session.task_class);
   const renderedSession = {
     session_id: session.session_id,
     task_id: session.task_id,
@@ -624,6 +673,7 @@ async function renderSessionViews() {
     next_step: session.next_step || '',
     blocker: session.blocker || 'none',
     workflow: session.task_class === 'trivial' ? 'express' : 'standard',
+    required_specialists: requiredSpecialists,
     active_agent: agentsUsed.at(-1) || '',
     agents_used: agentsUsed,
     files_touched: filesTouched,
@@ -646,6 +696,7 @@ async function renderSessionViews() {
     `- Status: ${session.status}`,
     `- Next step: ${session.next_step || ''}`,
     `- Blockers: ${session.blocker || 'none'}`,
+    `- Required specialists: ${requiredSpecialists.join(', ') || 'none'}`,
     agentsUsed.length ? `- Agents used: ${agentsUsed.join(', ')}` : '- Agents used:',
     filesTouched.length ? `- Files touched: ${filesTouched.join(', ')}` : '- Files touched:',
   ];
@@ -766,6 +817,11 @@ function createTaskAndSession(taskTitle, taskClass = classifyTask(taskTitle)) {
   const taskId = makeId('task');
   const sessionId = makeId('session');
   const ts = nowMs();
+  const requiredSpecialists = inferRequiredSpecialists(taskTitle, taskClass);
+  const nextStep =
+    taskClass === 'trivial'
+      ? 'Apply the requested change.'
+      : `Create a plan with task-planner before implementation. Required specialists: ${requiredSpecialists.join(', ')}.`;
   statement(`
     INSERT INTO tasks(id, title, class, status, created_at)
     VALUES(?, ?, ?, 'open', ?)
@@ -773,7 +829,7 @@ function createTaskAndSession(taskTitle, taskClass = classifyTask(taskTitle)) {
   statement(`
     INSERT INTO sessions(id, task_id, phase, status, next_step, blocker, opened_at, gemini_session_id)
     VALUES(?, ?, 'init', 'active', ?, 'none', ?, ?)
-  `).run(sessionId, taskId, taskClass === 'trivial' ? 'Apply the requested change.' : 'Create a plan before implementation.', ts, currentGeminiSessionId());
+  `).run(sessionId, taskId, nextStep, ts, currentGeminiSessionId());
   appendEvent(sessionId, 'session_started', { task: taskTitle, task_class: taskClass }, { source: 'tool', agent: 'main' });
   return sessionById(sessionId);
 }
@@ -992,7 +1048,10 @@ async function planCreate({
       nowMs(),
     );
     appendEvent(active.session_id, 'artifact_created', { kind: 'plan', path: rel(filePath) }, { source: 'tool', agent: 'planner' });
-    statement(`UPDATE sessions SET phase = 'plan', next_step = ? WHERE id = ?`).run('Start implementation after planning.', active.session_id);
+    statement(`UPDATE sessions SET phase = 'plan', next_step = ? WHERE id = ?`).run(
+      `Delegate implementation to required specialists: ${inferRequiredSpecialists(active.task, active.task_class).join(', ')}.`,
+      active.session_id,
+    );
   });
   await renderSessionViews();
   await touchDirtyIndex();
@@ -1627,6 +1686,7 @@ function buildHotContext() {
     return 'Kavion: no active session. Start one with kavion_session_start for non-trivial work.';
   }
   const events = recentEvents(session.session_id, 5);
+  const requiredSpecialists = inferRequiredSpecialists(session.task, session.task_class);
   return [
     '## Kavion Session',
     `- Task: ${session.task}`,
@@ -1635,6 +1695,7 @@ function buildHotContext() {
     `- Status: ${session.status}`,
     `- Next step: ${session.next_step || ''}`,
     `- Blocker: ${session.blocker || 'none'}`,
+    requiredSpecialists.length ? `- Required specialists: ${requiredSpecialists.join(', ')}` : '- Required specialists: none',
     events.length ? `- Recent events: ${events.map((event) => event.kind).join(', ')}` : '- Recent events: none',
   ].join('\n');
 }
@@ -1669,6 +1730,25 @@ async function handleBeforeAgentHook(input) {
       };
     }
     const additionalContext = buildHotContext();
+    if (isStartWorkflowPrompt(prompt)) {
+      return {
+        hookSpecificOutput: {
+          hookEventName: 'BeforeAgent',
+          additionalContext: `${additionalContext}\n\nKavion /kavion:start policy:\n- Only start or resume the session.\n- Allowed actions: kavion_session_start, kavion_status, reading CURRENT.md, and summarizing the next step.\n- Do not implement code.\n- Do not delegate to specialist agents.\n- Do not create plans, reports, or notes.\n- Do not run project build/test commands unless explicitly asked.\n- Final response must be a session/bootstrap summary only.`,
+        },
+      };
+    }
+    if (isExecutionWorkflowPrompt(prompt)) {
+      const task = session?.task || prompt;
+      const taskClass = session?.task_class || classifyTask(prompt);
+      const requiredPolicy = specialistPolicyText(task, taskClass);
+      return {
+        hookSpecificOutput: {
+          hookEventName: 'BeforeAgent',
+          additionalContext: `${additionalContext}\n\nKavion execution policy:\n${requiredPolicy}\nFor non-trivial feature and bug-fix work:\n- Persist a plan before implementation.\n- Use task-planner before entering code phase.\n- The main agent must not perform primary backend or database implementation directly when those specialists are required.\n- Use qa-test-engineer and code-reviewer before final completion.`,
+        },
+      };
+    }
     if (!session && prompt && classifyTask(prompt) !== 'trivial') {
       return {
         hookSpecificOutput: {

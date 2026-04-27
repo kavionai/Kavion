@@ -37,13 +37,16 @@ Use Standard when any are true:
 1. Requirements: clarify scope and acceptance criteria.
 2. Design: define technical approach when needed.
 3. Plan: break work into ordered steps and agent handoffs.
-4. Execute: delegate implementation to specialists.
+4. Execute: delegate implementation to specialists. The coordinator should not keep primary domain implementation local for Standard work.
 5. Verify: run QA, security, and review gates.
 6. Complete: update GitHub/docs/memory and report.
 
 ## Guardrails
 
 - Do not call every agent by default.
+- Do require the planner before Standard-work implementation.
+- Do require backend-engineer for backend/API/auth/server work.
+- Do require database-engineer for schema/persistence/query-heavy work.
 - Do not edit before understanding impact.
 - Do not skip review for non-trivial code changes.
 - State why a normal phase is skipped.

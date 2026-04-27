@@ -1,6 +1,6 @@
 {
   "name": "kavion",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Structured AI software team workflows with local project memory, real workflow gates, and durable session state.",
   "contextFileName": "KAVION.md",
   "mcpServers": {
