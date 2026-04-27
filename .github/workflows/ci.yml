@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  kavion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Validate extension manifest
+        run: npx -y @google/gemini-cli extensions validate .
+
+      - name: Check worker syntax
+        run: node --check mcp-server/index.js
+
+      - name: Check git diff formatting
+        run: git diff --check
+
+      - name: Smoke test installed-copy startup
+        run: node scripts/ci/install-copy-smoke.mjs
+
+      - name: Smoke test MCP handshake
+        run: node scripts/ci/mcp-handshake.mjs

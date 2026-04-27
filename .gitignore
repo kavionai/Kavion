@@ -8,6 +8,7 @@
 # Local env
 .env
 .env.*
+.tmp/
 
 # Gemini / local runtime state
 .gemini/

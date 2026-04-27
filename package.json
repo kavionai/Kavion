@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "check:mcp": "node --check mcp-server/index.js",
-    "start:mcp": "node mcp-server/launch.js"
+    "start:mcp": "node mcp-server/launch.js",
+    "ci:install-copy-smoke": "node scripts/ci/install-copy-smoke.mjs",
+    "ci:mcp-handshake": "node scripts/ci/mcp-handshake.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
