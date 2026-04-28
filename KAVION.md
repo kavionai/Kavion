@@ -33,10 +33,13 @@ For non-trivial coding work:
 11. For auth, role-based access, permissions, secrets, payments, or sensitive user data, use `security-engineer` before completion.
 12. Use `qa-test-engineer` for verification and `code-reviewer` before the final response.
 13. Use real commands and filesystem state for verification and gates.
-14. Use `kavion_report_create` for QA, review, and security reports.
-15. Before final response, keep shared state in the worker. Let Kavion render `.kavion/CURRENT.md` and `.kavion/session.json`.
-16. After meaningful memory changes, refresh `.kavion/index/` using `kavion_build_index` when MCP is available, or `/kavion:memory-index` when it is not.
-17. Do not call work release-ready when ship gate blocks.
+14. After each specialist finishes meaningful work, persist a structured handoff with `kavion_delegate`.
+    - Include summary, files changed, tests run, risks, blockers, downstream context, and next step.
+    - Non-trivial work is not complete until required specialist handoffs exist.
+15. Use `kavion_report_create` for QA, review, and security reports.
+16. Before final response, keep shared state in the worker. Let Kavion render `.kavion/CURRENT.md` and `.kavion/session.json`.
+17. After meaningful memory changes, refresh `.kavion/index/` using `kavion_build_index` when MCP is available, or `/kavion:memory-index` when it is not.
+18. Do not call work release-ready when ship gate blocks. Archive is blocked when required specialist handoffs or gate evidence are missing.
 
 Do not treat memory as optional for non-trivial work.
 Final responses for non-trivial work must include a Memory section showing updated, unchanged, or deferred memory files, index refresh status, and gate/checkpoint status.

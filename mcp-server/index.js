@@ -10,7 +10,7 @@ import { spawn } from 'node:child_process';
 import MiniSearch from '../vendor/mcp-runtime/node_modules/minisearch/dist/es/index.js';
 import YAML from '../vendor/mcp-runtime/node_modules/yaml/dist/index.js';
 
-const serverVersion = '0.2.4';
+const serverVersion = '0.3.0';
 
 const modulePath = fileURLToPath(import.meta.url);
 const serverDir = path.dirname(modulePath);
@@ -286,7 +286,11 @@ function defaultRenderedSession() {
     status: 'idle',
     next_step: '',
     blocker: 'none',
+    workflow: '',
+    required_specialists: [],
     agents_used: [],
+    delegations: [],
+    handoff_gaps: [],
     files_touched: [],
     recent_events: [],
     updated_at: '',
@@ -489,6 +493,14 @@ function inferRequiredSpecialists(task, taskClass = classifyTask(task)) {
   return [...required];
 }
 
+function implementationSpecialists(required) {
+  return required.filter((agent) => !['task-planner', 'qa-test-engineer', 'code-reviewer', 'security-engineer'].includes(agent));
+}
+
+function specialistDisplayName(agent) {
+  return String(agent || '').replace(/-/g, ' ');
+}
+
 function isStartWorkflowPrompt(prompt) {
   return prompt.includes('Start or resume a Kavion session for this task.');
 }
@@ -606,6 +618,56 @@ function sessionAgentsUsed(sessionId) {
   return rows.map((row) => row.agent_name).filter(Boolean).sort();
 }
 
+function delegationRows(sessionId) {
+  return statement(`
+    SELECT id, agent, spawned_at, completed_at, status, inputs_json, outputs_json, error
+    FROM delegations
+    WHERE session_id = ?
+    ORDER BY spawned_at ASC
+  `).all(sessionId).map((row) => ({
+    id: row.id,
+    agent: row.agent,
+    spawned_at: row.spawned_at,
+    completed_at: row.completed_at,
+    status: row.status,
+    inputs: parseJson(row.inputs_json, {}),
+    outputs: parseJson(row.outputs_json, {}),
+    error: row.error || '',
+  }));
+}
+
+function latestDelegationByAgent(sessionId, agent) {
+  const row = statement(`
+    SELECT id, agent, spawned_at, completed_at, status, inputs_json, outputs_json, error
+    FROM delegations
+    WHERE session_id = ? AND agent = ?
+    ORDER BY spawned_at DESC
+    LIMIT 1
+  `).get(sessionId, agent);
+  if (!row) return null;
+  return {
+    id: row.id,
+    agent: row.agent,
+    spawned_at: row.spawned_at,
+    completed_at: row.completed_at,
+    status: row.status,
+    inputs: parseJson(row.inputs_json, {}),
+    outputs: parseJson(row.outputs_json, {}),
+    error: row.error || '',
+  };
+}
+
+function summarizeDelegations(sessionId) {
+  return delegationRows(sessionId).map((row) => ({
+    id: row.id,
+    agent: row.agent,
+    status: row.status,
+    task: row.inputs.task || '',
+    summary: row.outputs.summary || '',
+    completed_at: row.completed_at ? isoNow(row.completed_at) : '',
+  }));
+}
+
 function appendEvent(sessionId, kind, payload = {}, { source = 'tool', agent = 'main' } = {}) {
   const ts = nowMs();
   const result = statement(`
@@ -662,6 +724,8 @@ async function renderSessionViews() {
   const filesTouched = sessionFilesTouched(session.session_id);
   const agentsUsed = sessionAgentsUsed(session.session_id);
   const requiredSpecialists = inferRequiredSpecialists(session.task, session.task_class);
+  const delegations = summarizeDelegations(session.session_id);
+  const handoffGaps = requiredSpecialistGaps(session);
   const renderedSession = {
     session_id: session.session_id,
     task_id: session.task_id,
@@ -676,6 +740,8 @@ async function renderSessionViews() {
     required_specialists: requiredSpecialists,
     active_agent: agentsUsed.at(-1) || '',
     agents_used: agentsUsed,
+    delegations,
+    handoff_gaps: handoffGaps,
     files_touched: filesTouched,
     recent_events: events.map((event) => ({
       id: event.id,
@@ -700,6 +766,20 @@ async function renderSessionViews() {
     agentsUsed.length ? `- Agents used: ${agentsUsed.join(', ')}` : '- Agents used:',
     filesTouched.length ? `- Files touched: ${filesTouched.join(', ')}` : '- Files touched:',
   ];
+
+  if (delegations.length) {
+    summaryLines.push('', '## Delegations');
+    for (const row of delegations.slice(-5)) {
+      summaryLines.push(`- ${specialistDisplayName(row.agent)}: ${row.status}${row.summary ? ` - ${row.summary}` : ''}`);
+    }
+  }
+
+  if (handoffGaps.length) {
+    summaryLines.push('', '## Handoff Gaps');
+    for (const gap of handoffGaps) {
+      summaryLines.push(`- ${gap}`);
+    }
+  }
 
   if (events.length) {
     summaryLines.push('', '## Recent Events');
@@ -1047,7 +1127,7 @@ async function planCreate({
       sha256(fileContent),
       nowMs(),
     );
-    appendEvent(active.session_id, 'artifact_created', { kind: 'plan', path: rel(filePath) }, { source: 'tool', agent: 'planner' });
+    appendEvent(active.session_id, 'artifact_created', { kind: 'plan', path: rel(filePath) }, { source: 'tool', agent: 'task-planner' });
     statement(`UPDATE sessions SET phase = 'plan', next_step = ? WHERE id = ?`).run(
       `Delegate implementation to required specialists: ${inferRequiredSpecialists(active.task, active.task_class).join(', ')}.`,
       active.session_id,
@@ -1131,7 +1211,13 @@ ${verified.length ? verified.map((item) => `- ${item}`).join('\n') : '- none'}
       sha256(fileContent),
       nowMs(),
     );
-    appendEvent(active.session_id, 'artifact_created', { kind: normalizedKind, path: rel(filePath) }, { source: 'tool', agent: 'reviewer' });
+    const ownerAgent =
+      normalizedKind === 'report:qa'
+        ? 'qa-test-engineer'
+        : normalizedKind === 'report:security'
+          ? 'security-engineer'
+          : 'code-reviewer';
+    appendEvent(active.session_id, 'artifact_created', { kind: normalizedKind, path: rel(filePath) }, { source: 'tool', agent: ownerAgent });
   });
   await renderSessionViews();
   await touchDirtyIndex();
@@ -1190,11 +1276,142 @@ ${normalizeWhitespace(content)}
   };
 }
 
+async function delegateSpecialist({
+  delegation_id,
+  agent,
+  task = '',
+  status = 'completed',
+  summary = '',
+  files_changed = [],
+  tests_run = [],
+  risks = [],
+  commands = [],
+  issues = [],
+  blockers = [],
+  next_step = '',
+  downstream_context = {},
+} = {}) {
+  await ensureWorkspaceInitialized();
+  const active = activeSessionRow();
+  if (!active) {
+    return { ok: false, reason: 'NO_SESSION', next_step: 'Call kavion_session_start first.' };
+  }
+
+  const agentName = normalizeWhitespace(agent);
+  if (!agentName) return { ok: false, reason: 'agent is required.' };
+
+  const normalizedStatus = String(status || '').trim();
+  if (!['completed', 'failed', 'needs_context'].includes(normalizedStatus)) {
+    return { ok: false, reason: `Unsupported delegation status: ${normalizedStatus}` };
+  }
+
+  const files = uniq(files_changed.map((item) => normalizeWhitespace(item)).filter(Boolean));
+  const payload = {
+    summary: normalizeWhitespace(summary),
+    files_changed: files,
+    tests_run: uniq(tests_run.map((item) => normalizeWhitespace(item)).filter(Boolean)),
+    risks: uniq(risks.map((item) => normalizeWhitespace(item)).filter(Boolean)),
+    commands: uniq(commands.map((item) => normalizeWhitespace(item)).filter(Boolean)),
+    issues: uniq(issues.map((item) => normalizeWhitespace(item)).filter(Boolean)),
+    blockers: uniq(blockers.map((item) => normalizeWhitespace(item)).filter(Boolean)),
+    next_step: normalizeWhitespace(next_step),
+    downstream_context: typeof downstream_context === 'object' && downstream_context !== null ? downstream_context : {},
+  };
+
+  if (normalizedStatus === 'completed' && !payload.summary) {
+    return { ok: false, reason: 'completed specialist handoffs require a summary.' };
+  }
+
+  const delegationId = delegation_id || makeId('delegation');
+  const existing = statement(`
+    SELECT id
+    FROM delegations
+    WHERE id = ? AND session_id = ?
+    LIMIT 1
+  `).get(delegationId, active.session_id);
+
+  tx(() => {
+    if (!existing) {
+      statement(`
+        INSERT INTO delegations(id, session_id, agent, spawned_at, completed_at, status, inputs_json, outputs_json, error)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        delegationId,
+        active.session_id,
+        agentName,
+        nowMs(),
+        nowMs(),
+        normalizedStatus,
+        safeJson({ task: normalizeWhitespace(task) || active.task }),
+        safeJson(payload),
+        normalizedStatus === 'failed' ? payload.blockers.join('; ') || payload.summary || 'Delegation failed.' : '',
+      );
+      appendEvent(active.session_id, 'delegation_started', { agent: agentName, delegation_id: delegationId, task: normalizeWhitespace(task) || active.task }, { source: 'tool', agent: 'main' });
+    } else {
+      statement(`
+        UPDATE delegations
+        SET completed_at = ?, status = ?, outputs_json = ?, error = ?
+        WHERE id = ? AND session_id = ?
+      `).run(
+        nowMs(),
+        normalizedStatus,
+        safeJson(payload),
+        normalizedStatus === 'failed' ? payload.blockers.join('; ') || payload.summary || 'Delegation failed.' : '',
+        delegationId,
+        active.session_id,
+      );
+    }
+
+    appendEvent(
+      active.session_id,
+      normalizedStatus === 'completed' ? 'delegation_completed' : normalizedStatus === 'failed' ? 'delegation_failed' : 'delegation_needs_context',
+      {
+        agent: agentName,
+        delegation_id: delegationId,
+        summary: payload.summary,
+        files_changed: files,
+        tests_run: payload.tests_run,
+        next_step: payload.next_step,
+      },
+      { source: 'tool', agent: agentName },
+    );
+    appendEvent(active.session_id, 'agent_used', { agent: agentName }, { source: 'tool', agent: agentName });
+    for (const filePath of files) {
+      appendEvent(active.session_id, 'file_touched', { path: filePath }, { source: 'tool', agent: agentName });
+    }
+    if (payload.next_step) {
+      statement('UPDATE sessions SET next_step = ? WHERE id = ?').run(payload.next_step, active.session_id);
+    }
+  });
+
+  await renderSessionViews();
+  await touchDirtyIndex();
+  return {
+    ok: true,
+    delegation: {
+      id: delegationId,
+      agent: agentName,
+      status: normalizedStatus,
+    },
+    session: sessionById(active.session_id),
+  };
+}
+
 async function closeActiveSession(reason = 'completed') {
   await ensureWorkspaceInitialized();
   const active = activeSessionRow();
   if (!active) {
     return { ok: false, reason: 'No active session to archive.' };
+  }
+  const ship = await runGate('ship');
+  if (ship.result === 'block') {
+    return {
+      ok: false,
+      reason: 'SHIP_GATE_BLOCKED',
+      evidence: ship.evidence,
+      blockers: ship.blockers || [],
+      component_results: ship.component_results,
+    };
   }
   tx(() => {
     statement(`
@@ -1280,6 +1497,71 @@ async function latestArtifact(sessionId, kind) {
   `).get(sessionId, kind);
 }
 
+function latestArtifactSync(sessionId, kind) {
+  return statement(`
+    SELECT * FROM artifacts
+    WHERE session_id = ? AND kind = ? AND superseded_by IS NULL
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).get(sessionId, kind);
+}
+
+function latestGateRun(sessionId, name) {
+  return statement(`
+    SELECT *
+    FROM gate_runs
+    WHERE session_id = ? AND name = ?
+    ORDER BY ran_at DESC
+    LIMIT 1
+  `).get(sessionId, name);
+}
+
+function requiredSpecialistGaps(session) {
+  if (!session) return [];
+  const required = inferRequiredSpecialists(session.task, session.task_class);
+  if (!required.length) return [];
+
+  const gaps = [];
+  const planArtifact = latestArtifactSync(session.session_id, 'plan');
+  const plannerDelegation = latestDelegationByAgent(session.session_id, 'task-planner');
+  if (!planArtifact) gaps.push('Missing plan artifact.');
+  if (!plannerDelegation || plannerDelegation.status !== 'completed') gaps.push('Missing completed task-planner handoff.');
+
+  for (const agent of implementationSpecialists(required)) {
+    const delegation = latestDelegationByAgent(session.session_id, agent);
+    if (!delegation || delegation.status !== 'completed') {
+      gaps.push(`Missing completed ${agent} handoff.`);
+    }
+  }
+
+  if (required.includes('qa-test-engineer')) {
+    const qaDelegation = latestDelegationByAgent(session.session_id, 'qa-test-engineer');
+    const qaReport = latestArtifactSync(session.session_id, 'report:qa');
+    const testGate = latestGateRun(session.session_id, 'test');
+    if (!qaDelegation || qaDelegation.status !== 'completed') gaps.push('Missing completed qa-test-engineer handoff.');
+    if (!qaReport) gaps.push('Missing QA report artifact.');
+    if (!testGate || !testGate.passed) gaps.push('Missing passing test gate evidence.');
+  }
+
+  if (required.includes('code-reviewer')) {
+    const reviewDelegation = latestDelegationByAgent(session.session_id, 'code-reviewer');
+    const reviewReport = latestArtifactSync(session.session_id, 'report:review');
+    if (!reviewDelegation || reviewDelegation.status !== 'completed') gaps.push('Missing completed code-reviewer handoff.');
+    if (!reviewReport) gaps.push('Missing review report artifact.');
+  }
+
+  if (required.includes('security-engineer')) {
+    const securityDelegation = latestDelegationByAgent(session.session_id, 'security-engineer');
+    const securityReport = latestArtifactSync(session.session_id, 'report:security');
+    const securityGate = latestGateRun(session.session_id, 'security');
+    if (!securityDelegation || securityDelegation.status !== 'completed') gaps.push('Missing completed security-engineer handoff.');
+    if (!securityReport) gaps.push('Missing security report artifact.');
+    if (securityGate && !securityGate.passed) gaps.push('Security gate is failing.');
+  }
+
+  return uniq(gaps);
+}
+
 async function runGate(name) {
   await ensureWorkspaceInitialized();
   const active = activeSessionRow();
@@ -1291,10 +1573,17 @@ async function runGate(name) {
   if (name === 'status') return getStatus();
   if (name === 'plan') {
     const plan = active ? await latestArtifact(active.session_id, 'plan') : null;
+    const plannerDelegation = active ? latestDelegationByAgent(active.session_id, 'task-planner') : null;
+    const blockers = [];
+    if (!plan) blockers.push('No plan artifact found.');
+    if (active && active.task_class !== 'trivial' && (!plannerDelegation || plannerDelegation.status !== 'completed')) {
+      blockers.push('Missing completed task-planner handoff.');
+    }
     return {
       gate: 'plan',
-      result: plan ? 'pass' : 'block',
-      evidence: plan ? `Plan artifact exists at ${plan.file_path}.` : 'No plan artifact found.',
+      result: blockers.length ? 'block' : 'pass',
+      evidence: blockers.length ? blockers.join(' ') : `Plan artifact exists at ${plan.file_path}.`,
+      blockers,
     };
   }
   if (name === 'test') {
@@ -1332,43 +1621,61 @@ async function runGate(name) {
   }
   if (name === 'review') {
     const report = await latestArtifact(active.session_id, 'report:review');
+    const reviewDelegation = latestDelegationByAgent(active.session_id, 'code-reviewer');
+    const blockers = [];
+    if (!report) blockers.push('No review report artifact found.');
+    if (!reviewDelegation || reviewDelegation.status !== 'completed') blockers.push('Missing completed code-reviewer handoff.');
     return {
       gate: 'review',
-      result: report ? 'pass' : 'block',
-      evidence: report ? `Review artifact exists at ${report.file_path}.` : 'No review report artifact found.',
+      result: blockers.length ? 'block' : 'pass',
+      evidence: blockers.length ? blockers.join(' ') : `Review artifact exists at ${report.file_path}.`,
+      blockers,
     };
   }
   if (name === 'security') {
+    const required = inferRequiredSpecialists(active.task, active.task_class);
+    const securityRequired = required.includes('security-engineer');
     const command = config.security?.command;
-    if (!command) {
+    if (!command && !securityRequired) {
       return {
         gate: 'security',
-        result: 'risk',
-        evidence: 'No security command configured in .kavion/gates.yaml.',
+        result: 'pass',
+        evidence: 'Security specialist is not required for this task.',
       };
     }
-    const commandResult = await runShell(command);
+    const commandResult = command ? await runShell(command) : null;
     tx(() => {
-      statement(`
-        INSERT INTO gate_runs(session_id, name, passed, exit_code, stdout_sha256, stdout_preview, ran_at, ttl_seconds)
-        VALUES(?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        active.session_id,
-        'security',
-        commandResult.exit_code === 0 ? 1 : 0,
-        commandResult.exit_code,
-        sha256(commandResult.stdout),
-        commandResult.stdout.slice(0, 4096),
-        nowMs(),
-        1800,
-      );
-      appendEvent(active.session_id, 'gate_run', { name: 'security', passed: commandResult.exit_code === 0 }, { source: 'tool', agent: 'security-engineer' });
+      if (commandResult) {
+        statement(`
+          INSERT INTO gate_runs(session_id, name, passed, exit_code, stdout_sha256, stdout_preview, ran_at, ttl_seconds)
+          VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          active.session_id,
+          'security',
+          commandResult.exit_code === 0 ? 1 : 0,
+          commandResult.exit_code,
+          sha256(commandResult.stdout),
+          commandResult.stdout.slice(0, 4096),
+          nowMs(),
+          1800,
+        );
+        appendEvent(active.session_id, 'gate_run', { name: 'security', passed: commandResult.exit_code === 0 }, { source: 'tool', agent: 'security-engineer' });
+      }
     });
+    const blockers = [];
+    if (securityRequired) {
+      const securityDelegation = latestDelegationByAgent(active.session_id, 'security-engineer');
+      const securityReport = await latestArtifact(active.session_id, 'report:security');
+      if (!securityDelegation || securityDelegation.status !== 'completed') blockers.push('Missing completed security-engineer handoff.');
+      if (!securityReport) blockers.push('No security report artifact found.');
+    }
+    if (commandResult && commandResult.exit_code !== 0) blockers.push('Configured security command failed.');
     return {
       gate: 'security',
-      result: commandResult.exit_code === 0 ? 'pass' : 'block',
+      result: blockers.length ? 'block' : 'pass',
       command: commandResult,
-      evidence: commandResult.exit_code === 0 ? 'Configured security command exited 0.' : 'Configured security command failed.',
+      evidence: blockers.length ? blockers.join(' ') : commandResult ? 'Configured security command exited 0.' : 'Security evidence satisfied.',
+      blockers,
     };
   }
   if (name === 'ship') {
@@ -1378,9 +1685,11 @@ async function runGate(name) {
     const security = await runGate('security');
     const branch = await gitBranch();
     const clean = !(await gitStatusPorcelain()).trim();
+    const handoffGaps = requiredSpecialistGaps(active);
     const blockers = [plan, review, test, security]
       .filter((result) => result.result === 'block')
       .map((result) => `${result.gate} blocked`);
+    blockers.push(...handoffGaps);
     if (!clean) blockers.push('git status not clean');
     if (branch === 'main') blockers.push('current branch is main');
     return {
@@ -1388,6 +1697,7 @@ async function runGate(name) {
       result: blockers.length ? 'block' : 'pass',
       evidence: blockers.length ? blockers.join('; ') : 'Plan, review, test, security, branch, and git cleanliness checks passed.',
       component_results: { plan, review, test, security },
+      blockers,
       branch,
       clean,
     };
@@ -1454,8 +1764,11 @@ async function getStatus() {
     current: normalizeWhitespace(await readText(currentFile)).slice(0, 1400),
     session: session ? {
       ...session,
+      required_specialists: inferRequiredSpecialists(session.task, session.task_class),
       files_touched: sessionFilesTouched(session.session_id),
       agents_used: sessionAgentsUsed(session.session_id),
+      delegations: summarizeDelegations(session.session_id),
+      handoff_gaps: requiredSpecialistGaps(session),
     } : defaultRenderedSession(),
     storage: {
       state_db: rel(stateDbFile),
@@ -1906,6 +2219,29 @@ async function startMcpServer() {
       }).shape,
     },
     async (payload) => text(await reportCreate(payload)),
+  );
+
+  server.registerTool(
+    'kavion_delegate',
+    {
+      description: 'Record a required specialist handoff for the active session.',
+      inputSchema: z.object({
+        delegation_id: z.string().optional(),
+        agent: z.string(),
+        task: z.string().default(''),
+        status: z.enum(['completed', 'failed', 'needs_context']).default('completed'),
+        summary: z.string().default(''),
+        files_changed: z.array(z.string()).default([]),
+        tests_run: z.array(z.string()).default([]),
+        risks: z.array(z.string()).default([]),
+        commands: z.array(z.string()).default([]),
+        issues: z.array(z.string()).default([]),
+        blockers: z.array(z.string()).default([]),
+        next_step: z.string().default(''),
+        downstream_context: z.record(z.string()).default({}),
+      }).shape,
+    },
+    async (payload) => text(await delegateSpecialist(payload)),
   );
 
   server.registerTool(

@@ -6,6 +6,8 @@ description: Use this skill whenever a Kavion specialist agent reports work back
 
 Use this skill for all specialist-to-coordinator reports.
 
+After preparing the handoff, persist it with `kavion_delegate` when the worker is available.
+
 ## Required report
 
 Return this structure:
@@ -38,3 +40,12 @@ For docs/memory:
 - Separate confirmed facts from assumptions.
 - Include blockers explicitly.
 - Include checkpoint or release-readiness decision when available.
+- Record the same facts in `kavion_delegate`:
+  - `agent`
+  - `summary`
+  - `files_changed`
+  - `tests_run`
+  - `risks`
+  - `blockers`
+  - `next_step`
+  - `downstream_context`
