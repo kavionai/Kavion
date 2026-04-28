@@ -15,9 +15,10 @@ Use this skill when work needs more than one step or more than one specialist.
 5. Put tests and review after implementation.
 6. Keep the plan proportional to risk.
 7. For Standard or multi-phase work, persist the plan under `.kavion/plans/` before implementation.
-8. Prefer MCP tool `kavion_write_plan` when available.
+8. Prefer MCP tool `kavion_plan_create` when available.
 9. Do not keep the only copy of the plan in chat text.
 10. For Standard work, the main agent is the coordinator; primary implementation should be handed to the selected specialists.
+11. For multi-step work, assign an owner specialist to each step so `kavion_plan_step_update` can track execution honestly.
 
 ## Agent selection
 

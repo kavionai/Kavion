@@ -54,13 +54,21 @@ The important design rule is:
 
 ## Hooks
 
-The v1 hook set is:
+The current hook set is:
 
 - `SessionStart`
 - `BeforeAgent`
+- `BeforeTool`
 - `AfterTool`
 
 These hooks call the worker, not direct file mutations.
+
+`BeforeTool` is the main policy layer. It blocks:
+
+- direct edits to `.kavion/state.db` and its sidecars
+- direct edits to rendered views under `.kavion/CURRENT.md`, `.kavion/session.json`, `.kavion/plans/`, `.kavion/reports/`, and `.kavion/history/`
+- Standard code-phase edits that start before a specialist ownership window exists
+- code edits that happen under the wrong active specialist for the touched path
 
 ## Delegation Model
 
@@ -69,8 +77,10 @@ Kavion now treats specialist work as worker-backed session evidence, not just pr
 - required specialists are inferred from task scope
 - each specialist should produce a structured handoff through `kavion_delegate`
 - specialist-owned implementation should begin with `kavion_delegate` status `spawned` so observed file edits attach to the specialist owner
+- plan artifacts are broken into worker-tracked plan steps with per-step owners and evidence
 - ship/archive fail when required handoffs or required reports are missing
 - ship also fails when required implementation specialists have no worker-observed file ownership
+- stale QA, review, and security evidence also block completion
 - the main agent remains coordinator, not the primary implementer for Standard work
 
 ## Migration

@@ -20,6 +20,7 @@ Required behavior:
 6. Delegate only to the needed specialist agents.
    - Persist each specialist handoff with `kavion_delegate`.
    - Use `status: "spawned"` before a specialist-owned implementation step so observed tool activity is attributed correctly.
+   - Use `kavion_plan_step_update` to keep multi-step execution state current.
    - Do not leave the workflow with implied specialist work and no recorded handoff.
 7. After each phase transition, update worker state again.
    - Do not leave the active flow stuck on `task-planner` after implementation delegation starts.
@@ -30,6 +31,7 @@ Required behavior:
 11. Update `.kavion/CURRENT.md` and session state before the final response through the worker.
 12. Refresh `.kavion/index/` after memory changes.
 13. Run a checkpoint before handoff and do not claim completion if required specialist handoffs are missing.
+14. Do not hand-edit rendered Kavion outputs. Keep session, plan, report, and history state in the worker.
 
 Do not call every agent by default.
 Do not read large memory files unless the task needs them.

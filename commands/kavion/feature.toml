@@ -28,6 +28,7 @@ Required flow:
      - Start with `status: "spawned"` before the specialist-owned implementation step begins.
      - Finish with `status: "completed"`, `failed`, or `needs_context` when that step ends.
      - Include summary, files_changed, tests_run, risks, blockers, next_step, and downstream_context.
+   - For multi-step work, update progress through `kavion_plan_step_update` as each plan step starts or completes.
 6. After each meaningful phase transition, use `kavion_session_transition`.
    - `init -> plan`
    - `plan -> code`
@@ -57,6 +58,7 @@ Required flow:
 12. Refresh `.kavion/index/` after meaningful memory changes.
 13. Run a checkpoint before calling the task done.
 14. Final response must explicitly state which specialist agents were used, what each one owned, and which `kavion_delegate` handoffs were recorded.
+15. Do not hand-edit `.kavion/CURRENT.md`, `.kavion/session.json`, `.kavion/plans/*`, or `.kavion/reports/*`; they are worker-rendered or worker-managed.
 
 Do not auto-load large memory files.
 Do not finish Standard work without plan/report files unless writes are blocked and deferred clearly.

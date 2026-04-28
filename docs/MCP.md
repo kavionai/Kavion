@@ -8,6 +8,7 @@ Kavion uses a worker-backed MCP server for SQLite state, rendered views, search,
 - `kavion_session_start`
 - `kavion_session_transition`
 - `kavion_plan_create`
+- `kavion_plan_step_update`
 - `kavion_report_create`
 - `kavion_delegate`
 - `kavion_archive_session`
@@ -73,6 +74,27 @@ Use it to persist:
 
 Start a specialist-owned implementation step with `status: "spawned"`. While that specialist is active, AfterTool hook events are attributed to that owner. Ship and archive are blocked when required specialist handoffs or required implementation ownership evidence are missing.
 
+Completed handoffs are validated by specialist role. Examples:
+
+- implementation specialists must report `files_changed`
+- `database-engineer` must include migration or rollback risk
+- `qa-test-engineer` must include `tests_run`
+- `security-engineer` must include findings or residual risk
+- `task-planner` must include a next step
+
+## Plan Steps
+
+`kavion_plan_step_update` updates worker-backed plan-step progress.
+
+Use it to persist:
+
+- `step_index`
+- `status`
+- `owner_agent`
+- `evidence`
+
+Plan steps are rendered back into the plan markdown artifact, surfaced in status output, and checked by the plan and ship gates.
+
 ## Install
 
 From `mcp-server/`:
@@ -82,4 +104,9 @@ npm install
 npm run check
 ```
 
-`/kavion:init-project` installs the minimal Gemini hook set into project `.gemini/settings.json` and points those hooks at the same worker entrypoint.
+`/kavion:init-project` installs the worker Gemini hook set into project `.gemini/settings.json` and points those hooks at the same worker entrypoint:
+
+- `SessionStart`
+- `BeforeAgent`
+- `BeforeTool`
+- `AfterTool`

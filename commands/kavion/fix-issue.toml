@@ -12,7 +12,7 @@ Required flow:
 3. Create or update `.kavion/session.json`.
    - Prefer MCP tool `kavion_update_session` when available.
 4. For multi-step fixes, write a plan under `.kavion/plans/`.
-   - Prefer MCP tool `kavion_write_plan` when available.
+   - Prefer MCP tool `kavion_plan_create` when available.
 5. Diagnose root cause before implementation.
 6. Update session state when the fix moves from diagnosis to implementation to verification.
 7. If diagnosis produced reusable debugging knowledge, persist a note under `.kavion/notes/`.

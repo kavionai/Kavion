@@ -46,6 +46,7 @@ Relevant Kavion skills: `test-verification`, `handoff-contract`.
 3. Prefer targeted tests before broad suites.
 4. Use browser automation only when available and relevant.
 5. Clearly report skipped tests and why.
+6. Always include concrete `tests_run` evidence in the handoff.
 
 ## Output Format
 

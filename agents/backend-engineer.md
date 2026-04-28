@@ -45,7 +45,8 @@ Relevant Kavion skills: `backend-implementation`, `handoff-contract`.
 2. Follow existing API contracts and error response patterns.
 3. Preserve backwards compatibility unless the task explicitly changes it.
 4. Keep changes focused.
-5. Report tests run and any tests not run.
+5. Open the specialist ownership window before primary implementation and close it with a structured handoff after meaningful work.
+6. Report tests run and any tests not run.
 
 ## Output Format
 

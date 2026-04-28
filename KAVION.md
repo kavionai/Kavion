@@ -36,11 +36,16 @@ For non-trivial coding work:
 14. After each specialist finishes meaningful work, persist a structured handoff with `kavion_delegate`.
     - Start the ownership window with `kavion_delegate` status `spawned` before that specialist begins primary implementation.
     - Include summary, files changed, tests run, risks, blockers, downstream context, and next step.
+    - Keep implementation under that active specialist until the handoff closes with `completed`, `failed`, or `needs_context`.
+    - For multi-step plans, update execution progress with `kavion_plan_step_update` as steps move from pending to in_progress to completed.
     - Non-trivial work is not complete until required specialist handoffs exist.
 15. Use `kavion_report_create` for QA, review, and security reports.
 16. Before final response, keep shared state in the worker. Let Kavion render `.kavion/CURRENT.md` and `.kavion/session.json`.
 17. After meaningful memory changes, refresh `.kavion/index/` using `kavion_build_index` when MCP is available, or `/kavion:memory-index` when it is not.
 18. Do not call work release-ready when ship gate blocks. Archive is blocked when required specialist handoffs or gate evidence are missing.
+19. Do not hand-edit rendered Kavion views or worker state files.
+    - `.kavion/CURRENT.md`, `.kavion/session.json`, `.kavion/plans/*`, `.kavion/reports/*`, and `.kavion/history/*` are worker-rendered outputs.
+    - `.kavion/state.db` and SQLite sidecars are worker-owned.
 
 Do not treat memory as optional for non-trivial work.
 Final responses for non-trivial work must include a Memory section showing updated, unchanged, or deferred memory files, index refresh status, and gate/checkpoint status.
