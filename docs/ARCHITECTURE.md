@@ -68,7 +68,9 @@ Kavion now treats specialist work as worker-backed session evidence, not just pr
 
 - required specialists are inferred from task scope
 - each specialist should produce a structured handoff through `kavion_delegate`
+- specialist-owned implementation should begin with `kavion_delegate` status `spawned` so observed file edits attach to the specialist owner
 - ship/archive fail when required handoffs or required reports are missing
+- ship also fails when required implementation specialists have no worker-observed file ownership
 - the main agent remains coordinator, not the primary implementer for Standard work
 
 ## Migration

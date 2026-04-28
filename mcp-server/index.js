@@ -284,6 +284,7 @@ function defaultRenderedSession() {
     task_class: '',
     phase: 'idle',
     status: 'idle',
+    active_specialist: 'main',
     next_step: '',
     blocker: 'none',
     workflow: '',
@@ -356,6 +357,7 @@ function openDb() {
       task_id TEXT NOT NULL REFERENCES tasks(id),
       phase TEXT NOT NULL CHECK(phase IN ('init','plan','code','test','review','ship','closed')),
       status TEXT NOT NULL CHECK(status IN ('active','paused','closed')) DEFAULT 'active',
+      active_specialist TEXT DEFAULT 'main',
       next_step TEXT,
       blocker TEXT,
       opened_at INTEGER NOT NULL,
@@ -434,6 +436,9 @@ function openDb() {
     INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', '1');
     INSERT OR IGNORE INTO meta(key, value) VALUES ('hook_failures', '0');
   `);
+  try {
+    dbHandle.exec(`ALTER TABLE sessions ADD COLUMN active_specialist TEXT DEFAULT 'main'`);
+  } catch {}
   return dbHandle;
 }
 
@@ -540,6 +545,7 @@ function activeSessionRow() {
       t.status AS task_status,
       s.phase,
       s.status,
+      s.active_specialist,
       s.next_step,
       s.blocker,
       s.opened_at,
@@ -564,6 +570,7 @@ function sessionById(sessionId) {
       t.status AS task_status,
       s.phase,
       s.status,
+      s.active_specialist,
       s.next_step,
       s.blocker,
       s.opened_at,
@@ -605,6 +612,18 @@ function sessionFilesTouched(sessionId) {
       AND kind = 'file_touched'
       AND json_extract(payload_json, '$.path') IS NOT NULL
   `).all(sessionId);
+  return rows.map((row) => row.path).filter(Boolean).sort();
+}
+
+function sessionFilesTouchedByAgent(sessionId, agent) {
+  const rows = statement(`
+    SELECT DISTINCT json_extract(payload_json, '$.path') AS path
+    FROM events
+    WHERE session_id = ?
+      AND kind = 'file_touched'
+      AND agent = ?
+      AND json_extract(payload_json, '$.path') IS NOT NULL
+  `).all(sessionId, agent);
   return rows.map((row) => row.path).filter(Boolean).sort();
 }
 
@@ -664,6 +683,7 @@ function summarizeDelegations(sessionId) {
     status: row.status,
     task: row.inputs.task || '',
     summary: row.outputs.summary || '',
+    files_observed: sessionFilesTouchedByAgent(sessionId, row.agent),
     completed_at: row.completed_at ? isoNow(row.completed_at) : '',
   }));
 }
@@ -738,7 +758,7 @@ async function renderSessionViews() {
     blocker: session.blocker || 'none',
     workflow: session.task_class === 'trivial' ? 'express' : 'standard',
     required_specialists: requiredSpecialists,
-    active_agent: agentsUsed.at(-1) || '',
+    active_agent: session.active_specialist || agentsUsed.at(-1) || 'main',
     agents_used: agentsUsed,
     delegations,
     handoff_gaps: handoffGaps,
@@ -760,6 +780,7 @@ async function renderSessionViews() {
     `- Class: ${session.task_class}`,
     `- Phase: ${session.phase}`,
     `- Status: ${session.status}`,
+    `- Active specialist: ${session.active_specialist || 'main'}`,
     `- Next step: ${session.next_step || ''}`,
     `- Blockers: ${session.blocker || 'none'}`,
     `- Required specialists: ${requiredSpecialists.join(', ') || 'none'}`,
@@ -910,6 +931,7 @@ function createTaskAndSession(taskTitle, taskClass = classifyTask(taskTitle)) {
     INSERT INTO sessions(id, task_id, phase, status, next_step, blocker, opened_at, gemini_session_id)
     VALUES(?, ?, 'init', 'active', ?, 'none', ?, ?)
   `).run(sessionId, taskId, nextStep, ts, currentGeminiSessionId());
+  statement(`UPDATE sessions SET active_specialist = 'main' WHERE id = ?`).run(sessionId);
   appendEvent(sessionId, 'session_started', { task: taskTitle, task_class: taskClass }, { source: 'tool', agent: 'main' });
   return sessionById(sessionId);
 }
@@ -983,10 +1005,12 @@ async function sessionTransition({ to_phase, next_step = '', blocker = '' } = {}
   tx(() => {
     statement(`
       UPDATE sessions
-      SET phase = ?, next_step = ?, blocker = ?, status = CASE WHEN ? = 'closed' THEN 'closed' ELSE status END,
+      SET phase = ?, active_specialist = CASE WHEN ? = 'code' THEN active_specialist ELSE 'main' END,
+          next_step = ?, blocker = ?, status = CASE WHEN ? = 'closed' THEN 'closed' ELSE status END,
           closed_at = CASE WHEN ? = 'closed' THEN ? ELSE closed_at END
       WHERE id = ?
     `).run(
+      target,
       target,
       next_step || active.next_step || '',
       blocker || active.blocker || 'none',
@@ -1028,16 +1052,18 @@ async function updateSessionCompat(payload = {}) {
   }
 
   tx(() => {
-    if (payload.next_step || payload.blockers || payload.blocker || payload.status) {
+    if (payload.next_step || payload.blockers || payload.blocker || payload.status || payload.active_agent) {
       statement(`
         UPDATE sessions
         SET next_step = COALESCE(?, next_step),
             blocker = COALESCE(?, blocker),
+            active_specialist = COALESCE(?, active_specialist),
             status = CASE WHEN ? IS NULL OR ? = '' THEN status ELSE ? END
         WHERE id = ?
       `).run(
         payload.next_step || null,
         payload.blockers || payload.blocker || null,
+        payload.active_agent || null,
         payload.status || null,
         payload.status || '',
         payload.status || '',
@@ -1046,6 +1072,7 @@ async function updateSessionCompat(payload = {}) {
       appendEvent(active.session_id, 'session_updated', {
         next_step: payload.next_step || undefined,
         blocker: payload.blockers || payload.blocker || undefined,
+        active_specialist: payload.active_agent || undefined,
         status: payload.status || undefined,
       }, { source: 'tool', agent: payload.active_agent || 'main' });
     }
@@ -1301,7 +1328,7 @@ async function delegateSpecialist({
   if (!agentName) return { ok: false, reason: 'agent is required.' };
 
   const normalizedStatus = String(status || '').trim();
-  if (!['completed', 'failed', 'needs_context'].includes(normalizedStatus)) {
+  if (!['spawned', 'completed', 'failed', 'needs_context'].includes(normalizedStatus)) {
     return { ok: false, reason: `Unsupported delegation status: ${normalizedStatus}` };
   }
 
@@ -1340,20 +1367,19 @@ async function delegateSpecialist({
         active.session_id,
         agentName,
         nowMs(),
-        nowMs(),
+        normalizedStatus === 'spawned' ? null : nowMs(),
         normalizedStatus,
         safeJson({ task: normalizeWhitespace(task) || active.task }),
         safeJson(payload),
         normalizedStatus === 'failed' ? payload.blockers.join('; ') || payload.summary || 'Delegation failed.' : '',
       );
-      appendEvent(active.session_id, 'delegation_started', { agent: agentName, delegation_id: delegationId, task: normalizeWhitespace(task) || active.task }, { source: 'tool', agent: 'main' });
     } else {
       statement(`
         UPDATE delegations
         SET completed_at = ?, status = ?, outputs_json = ?, error = ?
         WHERE id = ? AND session_id = ?
       `).run(
-        nowMs(),
+        normalizedStatus === 'spawned' ? null : nowMs(),
         normalizedStatus,
         safeJson(payload),
         normalizedStatus === 'failed' ? payload.blockers.join('; ') || payload.summary || 'Delegation failed.' : '',
@@ -1364,7 +1390,13 @@ async function delegateSpecialist({
 
     appendEvent(
       active.session_id,
-      normalizedStatus === 'completed' ? 'delegation_completed' : normalizedStatus === 'failed' ? 'delegation_failed' : 'delegation_needs_context',
+      normalizedStatus === 'spawned'
+        ? 'delegation_started'
+        : normalizedStatus === 'completed'
+          ? 'delegation_completed'
+          : normalizedStatus === 'failed'
+            ? 'delegation_failed'
+            : 'delegation_needs_context',
       {
         agent: agentName,
         delegation_id: delegationId,
@@ -1373,9 +1405,13 @@ async function delegateSpecialist({
         tests_run: payload.tests_run,
         next_step: payload.next_step,
       },
-      { source: 'tool', agent: agentName },
+      { source: 'tool', agent: normalizedStatus === 'spawned' ? 'main' : agentName },
     );
     appendEvent(active.session_id, 'agent_used', { agent: agentName }, { source: 'tool', agent: agentName });
+    statement(`UPDATE sessions SET active_specialist = ? WHERE id = ?`).run(
+      normalizedStatus === 'spawned' ? agentName : 'main',
+      active.session_id,
+    );
     for (const filePath of files) {
       appendEvent(active.session_id, 'file_touched', { path: filePath }, { source: 'tool', agent: agentName });
     }
@@ -1531,6 +1567,10 @@ function requiredSpecialistGaps(session) {
     const delegation = latestDelegationByAgent(session.session_id, agent);
     if (!delegation || delegation.status !== 'completed') {
       gaps.push(`Missing completed ${agent} handoff.`);
+      continue;
+    }
+    if (!sessionFilesTouchedByAgent(session.session_id, agent).length) {
+      gaps.push(`No worker-observed file ownership for ${agent}.`);
     }
   }
 
@@ -2006,6 +2046,7 @@ function buildHotContext() {
     `- Class: ${session.task_class}`,
     `- Phase: ${session.phase}`,
     `- Status: ${session.status}`,
+    `- Active specialist: ${session.active_specialist || 'main'}`,
     `- Next step: ${session.next_step || ''}`,
     `- Blocker: ${session.blocker || 'none'}`,
     requiredSpecialists.length ? `- Required specialists: ${requiredSpecialists.join(', ')}` : '- Required specialists: none',
@@ -2055,10 +2096,15 @@ async function handleBeforeAgentHook(input) {
       const task = session?.task || prompt;
       const taskClass = session?.task_class || classifyTask(prompt);
       const requiredPolicy = specialistPolicyText(task, taskClass);
+      const primarySpecialists = implementationSpecialists(inferRequiredSpecialists(task, taskClass));
+      const specialistActivation =
+        taskClass === 'trivial'
+          ? ''
+          : `\n- Before code edits for a specialist-owned task, call kavion_delegate with status 'spawned' for the specialist who owns the current implementation step.\n- Keep code edits under the active specialist until that specialist reports back with kavion_delegate status 'completed', 'failed', or 'needs_context'.\n- Do not leave active specialist ownership on 'main' while doing primary implementation for Standard work.\n- Ship will block if required implementation specialists have no worker-observed file ownership.${primarySpecialists.length ? ` Primary implementation specialists for this task: ${primarySpecialists.join(', ')}.` : ''}`;
       return {
         hookSpecificOutput: {
           hookEventName: 'BeforeAgent',
-          additionalContext: `${additionalContext}\n\nKavion execution policy:\n${requiredPolicy}\nFor non-trivial feature and bug-fix work:\n- Persist a plan before implementation.\n- Use task-planner before entering code phase.\n- The main agent must not perform primary backend or database implementation directly when those specialists are required.\n- Use qa-test-engineer and code-reviewer before final completion.`,
+          additionalContext: `${additionalContext}\n\nKavion execution policy:\n${requiredPolicy}\nFor non-trivial feature and bug-fix work:\n- Persist a plan before implementation.\n- Use task-planner before entering code phase.\n- The main agent must not perform primary backend or database implementation directly when those specialists are required.\n- Use qa-test-engineer and code-reviewer before final completion.${specialistActivation}`,
         },
       };
     }
@@ -2111,11 +2157,12 @@ async function handleAfterToolHook(input) {
       tool_input: input?.tool_input || {},
       tool_output_summary: typeof input?.tool_output === 'string' ? input.tool_output.slice(0, 400) : '',
     };
+    const activeOwner = session.active_specialist || 'main';
     tx(() => {
-      appendEvent(session.session_id, 'tool_call', payload, { source: 'hook', agent: 'main' });
+      appendEvent(session.session_id, 'tool_call', payload, { source: 'hook', agent: activeOwner });
       const touched = toolTouchedPath(input?.tool_input || {});
       if (touched && !touched.startsWith('.kavion/index/')) {
-        appendEvent(session.session_id, 'file_touched', { path: touched }, { source: 'hook', agent: 'main' });
+        appendEvent(session.session_id, 'file_touched', { path: touched }, { source: 'hook', agent: activeOwner });
       }
     });
     await renderSessionViews();
@@ -2229,7 +2276,7 @@ async function startMcpServer() {
         delegation_id: z.string().optional(),
         agent: z.string(),
         task: z.string().default(''),
-        status: z.enum(['completed', 'failed', 'needs_context']).default('completed'),
+        status: z.enum(['spawned', 'completed', 'failed', 'needs_context']).default('completed'),
         summary: z.string().default(''),
         files_changed: z.array(z.string()).default([]),
         tests_run: z.array(z.string()).default([]),

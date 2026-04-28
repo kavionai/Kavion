@@ -62,6 +62,7 @@ The gate model prefers:
 
 Use it to persist:
 
+- delegation status (`spawned`, `completed`, `failed`, `needs_context`)
 - specialist name
 - summary
 - files changed
@@ -70,7 +71,7 @@ Use it to persist:
 - next step
 - downstream context for QA, security, review, or docs
 
-Ship and archive are now blocked when required specialist handoffs are missing.
+Start a specialist-owned implementation step with `status: "spawned"`. While that specialist is active, AfterTool hook events are attributed to that owner. Ship and archive are blocked when required specialist handoffs or required implementation ownership evidence are missing.
 
 ## Install
 

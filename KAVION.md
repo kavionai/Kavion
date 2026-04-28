@@ -34,6 +34,7 @@ For non-trivial coding work:
 12. Use `qa-test-engineer` for verification and `code-reviewer` before the final response.
 13. Use real commands and filesystem state for verification and gates.
 14. After each specialist finishes meaningful work, persist a structured handoff with `kavion_delegate`.
+    - Start the ownership window with `kavion_delegate` status `spawned` before that specialist begins primary implementation.
     - Include summary, files changed, tests run, risks, blockers, downstream context, and next step.
     - Non-trivial work is not complete until required specialist handoffs exist.
 15. Use `kavion_report_create` for QA, review, and security reports.

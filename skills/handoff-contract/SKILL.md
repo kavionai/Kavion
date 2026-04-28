@@ -7,6 +7,7 @@ description: Use this skill whenever a Kavion specialist agent reports work back
 Use this skill for all specialist-to-coordinator reports.
 
 After preparing the handoff, persist it with `kavion_delegate` when the worker is available.
+If the specialist is about to start the owned implementation step, open that ownership with `kavion_delegate` status `spawned` first.
 
 ## Required report
 
@@ -41,6 +42,7 @@ For docs/memory:
 - Include blockers explicitly.
 - Include checkpoint or release-readiness decision when available.
 - Record the same facts in `kavion_delegate`:
+  - `status` (`spawned` before implementation, then `completed`, `failed`, or `needs_context`)
   - `agent`
   - `summary`
   - `files_changed`
