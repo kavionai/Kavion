@@ -20,24 +20,30 @@ The older `/kavion:checkpoint` and `/kavion:release-readiness` commands remain a
 
 - `plan`
   - plan file exists
-  - references real repo files
+  - planner handoff exists
+  - all required plan steps are complete
 
 - `test`
   - configured test command runs
   - exit code is real
   - coverage can be checked if configured
+  - QA evidence is not stale
 
 - `review`
   - review report exists
+  - review handoff exists
   - required sections exist
   - report is not stale
 
 - `security`
-  - only triggers for sensitive paths
-  - runs the configured security command
+  - only blocks for sensitive scope or explicit security configuration
+  - requires security handoff and report when applicable
+  - rejects stale security evidence
 
 - `ship`
   - composes the other gates
+  - checks required specialist handoffs
+  - checks worker-observed implementation ownership
   - checks git cleanliness
   - checks branch safety
 

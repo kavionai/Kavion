@@ -43,6 +43,7 @@ Relevant Kavion skills: `security-review`, `handoff-contract`.
 3. Distinguish confirmed findings from assumptions.
 4. Keep findings actionable and tied to files or behavior.
 5. Say clearly when no material issue is found.
+6. Close with residual risk, not only findings, so the worker can enforce a complete security handoff.
 
 ## Output Format
 

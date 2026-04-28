@@ -17,9 +17,10 @@ Inside Gemini CLI:
 
 ```text
 /kavion:init-project
+/kavion:start "Build a small API"
 /kavion:feature "Build a small API"
-/kavion:checkpoint
-/kavion:release-readiness
+/kavion:status
+/kavion:gate ship
 ```
 
 Kavion commands:

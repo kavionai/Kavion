@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kalpeshchouhan/Kavion"><img alt="Version" src="https://img.shields.io/badge/version-0.3.0-202124"></a>
+  <a href="https://github.com/kalpeshchouhan/Kavion"><img alt="Version" src="https://img.shields.io/badge/version-0.4.0-202124"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-00A887"></a>
   <img alt="AI Coding CLI" src="https://img.shields.io/badge/AI%20coding%20CLI-extension-4C7BE8">
   <img alt="MCP" src="https://img.shields.io/badge/MCP-supported-D9A000">
@@ -111,7 +111,9 @@ The worker + MCP server now provide:
 - workspace initialization
 - worker-backed session start and phase transitions
 - plan and report artifacts backed by SQLite
+- plan step tracking with owner agents and progress
 - worker-backed specialist handoffs and delegation evidence
+- active specialist ownership windows for implementation
 - rendered `CURRENT.md` and `session.json`
 - BM25 index build and search
 - chunk reads
@@ -120,10 +122,11 @@ The worker + MCP server now provide:
 - memory hygiene checks
 - real workflow gates
 
-`/kavion:init-project` also installs the minimal Gemini hook set into project `.gemini/settings.json`:
+`/kavion:init-project` also installs the worker hook set into project `.gemini/settings.json`:
 
 - `SessionStart`
 - `BeforeAgent`
+- `BeforeTool`
 - `AfterTool`
 
 The extension ships a vendored MCP runtime, so `gemini extensions install` does not need a follow-up `npm install` inside the installed extension copy.

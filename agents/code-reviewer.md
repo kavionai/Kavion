@@ -43,6 +43,7 @@ Relevant Kavion skills: `code-review-workflow`, `handoff-contract`.
 3. Order findings by severity.
 4. Keep findings concrete with file references when possible.
 5. If no issues are found, say so clearly and note residual test gaps.
+6. End with overall readiness and unresolved risk so the review handoff is decision-useful.
 
 ## Output Format
 

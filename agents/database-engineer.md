@@ -44,8 +44,9 @@ Relevant Kavion skills: `database-change`, `handoff-contract`.
 1. Inspect existing schema, migrations, ORM patterns, and database commands.
 2. Prefer additive, backwards-compatible migrations.
 3. Consider existing production data.
-4. Document any manual migration or deployment requirements.
-5. Report verification and rollback considerations.
+4. Open the specialist ownership window before schema or persistence implementation and close it with a structured handoff after meaningful work.
+5. Document any manual migration or deployment requirements.
+6. Report verification and rollback considerations.
 
 ## Output Format
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 - 2026-04-29
+
+- Added active implementation ownership enforcement through `BeforeTool`, so rendered views and SQLite state cannot be hand-edited and Standard code work must run inside an active specialist ownership window.
+- Added worker-backed plan step tracking through `kavion_plan_step_update`, including owner agents, evidence, progress rendering, and plan-step completion checks in the plan gate.
+- Tightened specialist evidence rules with required handoff fields, worker-observed implementation ownership checks, stale QA/review/security evidence checks, and stronger ship/archive blocking.
+- Expanded specialist routing for architecture, frontend, AI automation, DevOps/docs, GitHub workflow, and product requirements scope.
+- Improved idle-session rendering so `CURRENT.md` and `session.json` surface the last completed task instead of looking like work disappeared.
+
 ## 0.3.0 - 2026-04-28
 
 - Added worker-backed `kavion_delegate` specialist handoffs so required team work is recorded structurally instead of relying on prompt intent alone.

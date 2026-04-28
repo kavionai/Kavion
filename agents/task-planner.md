@@ -27,6 +27,7 @@ Relevant Kavion skills: `execution-planning`, `handoff-contract`.
 - Identify dependencies and sequencing.
 - Separate investigation, implementation, testing, review, and GitHub steps.
 - Recommend which specialist agents should be used.
+- Assign an owner specialist for each non-trivial implementation or verification step.
 - Keep the plan proportional to task size.
 
 ## Boundaries
@@ -35,6 +36,7 @@ Relevant Kavion skills: `execution-planning`, `handoff-contract`.
 - Do not produce large speculative plans for simple tasks.
 - Do not call or manage other agents directly.
 - Do not replace the main coordinator's final decision.
+- Do not leave Standard work without a concrete next step for the coordinator.
 
 ## Output Format
 
@@ -43,6 +45,7 @@ Return:
 - Task type
 - Recommended agents
 - Ordered steps
+- Step owners
 - Dependencies
 - Verification plan
 - Risks or blockers

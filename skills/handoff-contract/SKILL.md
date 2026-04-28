@@ -8,6 +8,7 @@ Use this skill for all specialist-to-coordinator reports.
 
 After preparing the handoff, persist it with `kavion_delegate` when the worker is available.
 If the specialist is about to start the owned implementation step, open that ownership with `kavion_delegate` status `spawned` first.
+If the work belongs to a plan step, update that step with `kavion_plan_step_update` when the step starts and when it completes.
 
 ## Required report
 
@@ -51,3 +52,8 @@ For docs/memory:
   - `blockers`
   - `next_step`
   - `downstream_context`
+- Match the payload to the specialist role:
+  - implementation specialists must list `files_changed`
+  - `database-engineer` must note migration or rollback risk
+  - `qa-test-engineer` must list `tests_run`
+  - `security-engineer` must include findings or residual risk

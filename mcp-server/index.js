@@ -10,7 +10,7 @@ import { spawn } from 'node:child_process';
 import MiniSearch from '../vendor/mcp-runtime/node_modules/minisearch/dist/es/index.js';
 import YAML from '../vendor/mcp-runtime/node_modules/yaml/dist/index.js';
 
-const serverVersion = '0.3.0';
+const serverVersion = '0.4.0';
 
 const modulePath = fileURLToPath(import.meta.url);
 const serverDir = path.dirname(modulePath);
@@ -75,6 +75,11 @@ const defaultGateConfig = {
   security: {
     trigger_paths: ['src/auth/**', 'src/crypto/**', '**/Dockerfile', 'package.json'],
     command: null,
+  },
+  freshness: {
+    review_ttl_seconds: 1800,
+    security_ttl_seconds: 1800,
+    qa_ttl_seconds: 1800,
   },
 };
 
@@ -294,6 +299,8 @@ function defaultRenderedSession() {
     handoff_gaps: [],
     files_touched: [],
     recent_events: [],
+    last_completed_task: '',
+    last_completed_at: '',
     updated_at: '',
   };
 }
@@ -405,6 +412,18 @@ function openDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_artifacts_session_kind ON artifacts(session_id, kind);
 
+    CREATE TABLE IF NOT EXISTS plan_steps (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      artifact_id TEXT NOT NULL REFERENCES artifacts(id),
+      step_index INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('pending','in_progress','completed','blocked')) DEFAULT 'pending',
+      owner_agent TEXT,
+      evidence TEXT,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_plan_steps_artifact ON plan_steps(artifact_id, step_index);
+
     CREATE TABLE IF NOT EXISTS gate_runs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       session_id TEXT NOT NULL REFERENCES sessions(id),
@@ -481,6 +500,14 @@ function inferRequiredSpecialists(task, taskClass = classifyTask(task)) {
   const text = String(task || '').toLowerCase();
   const required = new Set(['task-planner']);
 
+  if (/\b(architecture|architect|redesign|refactor|overhaul|multi-service|distributed|domain model)\b/.test(text)) {
+    required.add('system-architect');
+  }
+
+  if (/\b(frontend|ui|ux|react|next\.?js|nextjs|component|page|layout|css|tailwind|accessibility|a11y)\b/.test(text)) {
+    required.add('frontend-engineer');
+  }
+
   if (/\b(nest|nestjs|express|backend|server|api|controller|service|route|endpoint|jwt|auth|authentication|authorization|rbac|role[- ]based|permission|swagger|openapi)\b/.test(text)) {
     required.add('backend-engineer');
   }
@@ -493,13 +520,30 @@ function inferRequiredSpecialists(task, taskClass = classifyTask(task)) {
     required.add('security-engineer');
   }
 
+  if (/\b(prompt|agent|agents|workflow|mcp|tooling|extension|gemini|codex|qwen|claude|llm|model context)\b/.test(text)) {
+    required.add('ai-automation-engineer');
+  }
+
+  if (/\b(ci|github actions|pipeline|docker|kubernetes|deploy|deployment|release|docs|documentation|readme|infra|devops)\b/.test(text)) {
+    required.add('devops-docs-engineer');
+  }
+
+  if (/\b(github|pull request|pr |issue |issues |release notes|labels|milestone)\b/.test(text)) {
+    required.add('github-workflow-manager');
+  }
+
+  if (/\b(requirements|spec|specification|acceptance criteria|user story|scope)\b/.test(text)) {
+    required.add('product-manager');
+  }
+
   required.add('qa-test-engineer');
   required.add('code-reviewer');
   return [...required];
 }
 
 function implementationSpecialists(required) {
-  return required.filter((agent) => !['task-planner', 'qa-test-engineer', 'code-reviewer', 'security-engineer'].includes(agent));
+  const owners = new Set(['backend-engineer', 'database-engineer', 'frontend-engineer', 'ai-automation-engineer', 'devops-docs-engineer']);
+  return required.filter((agent) => owners.has(agent));
 }
 
 function specialistDisplayName(agent) {
@@ -582,6 +626,31 @@ function sessionById(sessionId) {
     WHERE s.id = ?
     LIMIT 1
   `).get(sessionId);
+}
+
+function latestClosedSessionRow() {
+  return statement(`
+    SELECT
+      s.id AS session_id,
+      t.id AS task_id,
+      t.title AS task,
+      t.class AS task_class,
+      t.status AS task_status,
+      s.phase,
+      s.status,
+      s.active_specialist,
+      s.next_step,
+      s.blocker,
+      s.opened_at,
+      s.closed_at,
+      s.last_event_id,
+      s.gemini_session_id
+    FROM sessions s
+    JOIN tasks t ON t.id = s.task_id
+    WHERE s.status = 'closed'
+    ORDER BY s.closed_at DESC, s.opened_at DESC
+    LIMIT 1
+  `).get();
 }
 
 function recentEvents(sessionId, limit = 5) {
@@ -688,6 +757,41 @@ function summarizeDelegations(sessionId) {
   }));
 }
 
+function latestPlanArtifact(sessionId) {
+  return latestArtifactSync(sessionId, 'plan');
+}
+
+function planStepsByArtifact(artifactId) {
+  return statement(`
+    SELECT id, step_index, title, status, owner_agent, evidence, updated_at
+    FROM plan_steps
+    WHERE artifact_id = ?
+    ORDER BY step_index ASC
+  `).all(artifactId).map((row) => ({
+    id: row.id,
+    step_index: row.step_index,
+    title: row.title,
+    status: row.status,
+    owner_agent: row.owner_agent || '',
+    evidence: row.evidence || '',
+    updated_at: row.updated_at,
+  }));
+}
+
+function planProgress(sessionId) {
+  const artifact = latestPlanArtifact(sessionId);
+  if (!artifact) return null;
+  const steps = planStepsByArtifact(artifact.id);
+  if (!steps.length) return { total: 0, completed: 0, in_progress: 0, blocked: 0, pending: 0 };
+  return {
+    total: steps.length,
+    completed: steps.filter((step) => step.status === 'completed').length,
+    in_progress: steps.filter((step) => step.status === 'in_progress').length,
+    blocked: steps.filter((step) => step.status === 'blocked').length,
+    pending: steps.filter((step) => step.status === 'pending').length,
+  };
+}
+
 function appendEvent(sessionId, kind, payload = {}, { source = 'tool', agent = 'main' } = {}) {
   const ts = nowMs();
   const result = statement(`
@@ -726,12 +830,103 @@ ${events.length ? events.map((event) => `- ${isoNow(event.ts)} ${event.kind}${ev
 `;
 }
 
+function inferStepOwner(step, requiredSpecialists = []) {
+  const text = String(step || '').toLowerCase();
+  if (/\b(schema|migration|query|database|prisma|typeorm|repository|index)\b/.test(text) && requiredSpecialists.includes('database-engineer')) {
+    return 'database-engineer';
+  }
+  if (/\b(ui|frontend|component|page|layout|css|tailwind|accessibility)\b/.test(text) && requiredSpecialists.includes('frontend-engineer')) {
+    return 'frontend-engineer';
+  }
+  if (/\b(agent|workflow|mcp|prompt|extension|llm|tool)\b/.test(text) && requiredSpecialists.includes('ai-automation-engineer')) {
+    return 'ai-automation-engineer';
+  }
+  if (/\b(ci|pipeline|docker|deploy|docs|readme|release)\b/.test(text) && requiredSpecialists.includes('devops-docs-engineer')) {
+    return 'devops-docs-engineer';
+  }
+  if (requiredSpecialists.includes('backend-engineer')) return 'backend-engineer';
+  return requiredSpecialists.find((agent) => implementationSpecialists(requiredSpecialists).includes(agent)) || '';
+}
+
+function planMarkdown({ title, goal, acceptance_criteria, steps, files, risks }) {
+  return `# Plan: ${title}
+
+## Goal
+${goal || 'TBD'}
+
+## Acceptance Criteria
+${acceptance_criteria.length ? acceptance_criteria.map((item) => `- ${item}`).join('\n') : '- TBD'}
+
+## Steps
+${steps.length
+    ? steps
+        .map((step, index) => {
+          const label = step.status ? `[${step.status}] ` : '';
+          const owner = step.owner_agent ? ` (${step.owner_agent})` : '';
+          const evidence = step.evidence ? `\n   evidence: ${step.evidence}` : '';
+          return `${index + 1}. ${label}${step.title}${owner}${evidence}`;
+        })
+        .join('\n')
+    : '1. Inspect the relevant code.\n2. Implement the change.\n3. Verify the result.'}
+
+## Files
+${files.length ? files.map((item) => `- ${item}`).join('\n') : '- TBD'}
+
+## Risks
+${risks.length ? risks.map((item) => `- ${item}`).join('\n') : '- none'}
+`;
+}
+
+async function renderPlanArtifact(artifactId) {
+  const artifact = statement(`
+    SELECT *
+    FROM artifacts
+    WHERE id = ?
+    LIMIT 1
+  `).get(artifactId);
+  if (!artifact || artifact.kind !== 'plan' || !artifact.file_path) return null;
+  const payload = parseJson(artifact.payload_json, {});
+  const steps = planStepsByArtifact(artifact.id);
+  const filePath = path.join(workspacePath, artifact.file_path);
+  const body = planMarkdown({
+    title: payload.title || 'Plan',
+    goal: normalizeWhitespace(payload.goal || ''),
+    acceptance_criteria: (payload.acceptance_criteria || []).map((item) => String(item).trim()).filter(Boolean),
+    steps,
+    files: (payload.files || []).map((item) => String(item).trim()).filter(Boolean),
+    risks: (payload.risks || []).map((item) => String(item).trim()).filter(Boolean),
+  });
+  await writeTextAtomic(filePath, `${body.trim()}\n`);
+  const fileContent = await readText(filePath);
+  statement(`UPDATE artifacts SET file_sha256 = ? WHERE id = ?`).run(sha256(fileContent), artifactId);
+  return rel(filePath);
+}
+
 async function renderSessionViews() {
   await ensureStaticFiles();
   const session = activeSessionRow();
   if (!session) {
-    await writeTextAtomic(currentFile, defaultCurrentContent());
-    await writeJsonAtomic(sessionFile, defaultRenderedSession());
+    const lastClosed = latestClosedSessionRow();
+    const idleCurrent = lastClosed
+      ? `# Current Work
+
+- Active task: none
+- Status: idle
+- Next step: Start a new task or inspect recent history.
+- Blockers: none
+
+## Last Completed
+- Task: ${lastClosed.task}
+- Closed: ${lastClosed.closed_at ? isoNow(lastClosed.closed_at) : ''}
+`
+      : defaultCurrentContent();
+    const renderedIdle = {
+      ...defaultRenderedSession(),
+      last_completed_task: lastClosed?.task || '',
+      last_completed_at: lastClosed?.closed_at ? isoNow(lastClosed.closed_at) : '',
+    };
+    await writeTextAtomic(currentFile, idleCurrent);
+    await writeJsonAtomic(sessionFile, renderedIdle);
     return {
       ok: true,
       active: false,
@@ -746,6 +941,7 @@ async function renderSessionViews() {
   const requiredSpecialists = inferRequiredSpecialists(session.task, session.task_class);
   const delegations = summarizeDelegations(session.session_id);
   const handoffGaps = requiredSpecialistGaps(session);
+  const progress = planProgress(session.session_id);
   const renderedSession = {
     session_id: session.session_id,
     task_id: session.task_id,
@@ -760,6 +956,7 @@ async function renderSessionViews() {
     required_specialists: requiredSpecialists,
     active_agent: session.active_specialist || agentsUsed.at(-1) || 'main',
     agents_used: agentsUsed,
+    plan_progress: progress,
     delegations,
     handoff_gaps: handoffGaps,
     files_touched: filesTouched,
@@ -783,6 +980,7 @@ async function renderSessionViews() {
     `- Active specialist: ${session.active_specialist || 'main'}`,
     `- Next step: ${session.next_step || ''}`,
     `- Blockers: ${session.blocker || 'none'}`,
+    progress ? `- Plan progress: ${progress.completed}/${progress.total} completed` : '- Plan progress:',
     `- Required specialists: ${requiredSpecialists.join(', ') || 'none'}`,
     agentsUsed.length ? `- Agents used: ${agentsUsed.join(', ')}` : '- Agents used:',
     filesTouched.length ? `- Files touched: ${filesTouched.join(', ')}` : '- Files touched:',
@@ -880,6 +1078,7 @@ async function installGeminiHookSettings() {
   upsertHook('SessionStart', 'startup', 'kavion-session-start', hookCommand('session-start'));
   upsertHook('SessionStart', 'resume', 'kavion-session-start-resume', hookCommand('session-start'));
   upsertHook('BeforeAgent', '*', 'kavion-before-agent', hookCommand('before-agent'));
+  upsertHook('BeforeTool', 'write_file|replace', 'kavion-before-tool', hookCommand('before-tool'));
   upsertHook('AfterTool', '.*', 'kavion-after-tool', hookCommand('after-tool'));
 
   settings.hooks = currentHooks;
@@ -1094,26 +1293,6 @@ async function updateSessionCompat(payload = {}) {
   };
 }
 
-function planMarkdown({ title, goal, acceptance_criteria, steps, files, risks }) {
-  return `# Plan: ${title}
-
-## Goal
-${goal || 'TBD'}
-
-## Acceptance Criteria
-${acceptance_criteria.length ? acceptance_criteria.map((item) => `- ${item}`).join('\n') : '- TBD'}
-
-## Steps
-${steps.length ? steps.map((step, index) => `${index + 1}. ${step}`).join('\n') : '1. Inspect the relevant code.\n2. Implement the change.\n3. Verify the result.'}
-
-## Files
-${files.length ? files.map((item) => `- ${item}`).join('\n') : '- TBD'}
-
-## Risks
-${risks.length ? risks.map((item) => `- ${item}`).join('\n') : '- none'}
-`;
-}
-
 async function planCreate({
   slug,
   title = '',
@@ -1131,35 +1310,54 @@ async function planCreate({
   const planSlug = slugify(slug || title || active.task);
   const planTitle = title || active.task;
   const filePath = path.join(plansRoot, `plan-${planSlug}.md`);
-  const body = planMarkdown({
-    title: planTitle,
-    goal: normalizeWhitespace(goal),
-    acceptance_criteria: acceptance_criteria.map((item) => String(item).trim()).filter(Boolean),
-    steps: steps.map((item) => String(item).trim()).filter(Boolean),
-    files: files.map((item) => String(item).trim()).filter(Boolean),
-    risks: risks.map((item) => String(item).trim()).filter(Boolean),
-  });
-  await writeTextAtomic(filePath, `${body.trim()}\n`);
-  const fileContent = await readText(filePath);
+  const normalizedAcceptance = acceptance_criteria.map((item) => String(item).trim()).filter(Boolean);
+  const normalizedSteps = steps.map((item) => String(item).trim()).filter(Boolean);
+  const normalizedFiles = files.map((item) => String(item).trim()).filter(Boolean);
+  const normalizedRisks = risks.map((item) => String(item).trim()).filter(Boolean);
+  const requiredSpecialists = inferRequiredSpecialists(active.task, active.task_class);
+  let artifactId = '';
   tx(() => {
-    const artifactId = makeId('artifact');
+    artifactId = makeId('artifact');
     statement(`
       INSERT INTO artifacts(id, session_id, kind, payload_json, file_path, file_sha256, created_at)
       VALUES(?, ?, 'plan', ?, ?, ?, ?)
     `).run(
       artifactId,
       active.session_id,
-      safeJson({ title: planTitle, goal, acceptance_criteria, steps, files, risks }),
+      safeJson({
+        title: planTitle,
+        goal: normalizeWhitespace(goal),
+        acceptance_criteria: normalizedAcceptance,
+        steps: normalizedSteps,
+        files: normalizedFiles,
+        risks: normalizedRisks,
+      }),
       rel(filePath),
-      sha256(fileContent),
+      '',
       nowMs(),
     );
+    const stepList = normalizedSteps.length
+      ? normalizedSteps
+      : ['Inspect the relevant code.', 'Implement the change.', 'Verify the result.'];
+    for (const [index, step] of stepList.entries()) {
+      statement(`
+        INSERT INTO plan_steps(artifact_id, step_index, title, status, owner_agent, evidence, updated_at)
+        VALUES(?, ?, ?, 'pending', ?, '', ?)
+      `).run(
+        artifactId,
+        index + 1,
+        step,
+        inferStepOwner(step, requiredSpecialists),
+        nowMs(),
+      );
+    }
     appendEvent(active.session_id, 'artifact_created', { kind: 'plan', path: rel(filePath) }, { source: 'tool', agent: 'task-planner' });
     statement(`UPDATE sessions SET phase = 'plan', next_step = ? WHERE id = ?`).run(
-      `Delegate implementation to required specialists: ${inferRequiredSpecialists(active.task, active.task_class).join(', ')}.`,
+      `Delegate implementation to required specialists: ${requiredSpecialists.join(', ')}.`,
       active.session_id,
     );
   });
+  await renderPlanArtifact(artifactId);
   await renderSessionViews();
   await touchDirtyIndex();
   return {
@@ -1167,6 +1365,74 @@ async function planCreate({
     file: rel(filePath),
     slug: planSlug,
     session: sessionById(active.session_id),
+  };
+}
+
+async function planStepUpdate({
+  step_index,
+  status,
+  evidence = '',
+  owner_agent = '',
+} = {}) {
+  await ensureWorkspaceInitialized();
+  const active = activeSessionRow();
+  if (!active) {
+    return { ok: false, reason: 'NO_SESSION', next_step: 'Call kavion_session_start first.' };
+  }
+  const artifact = latestPlanArtifact(active.session_id);
+  if (!artifact) {
+    return { ok: false, reason: 'NO_PLAN', next_step: 'Create a plan with kavion_plan_create first.' };
+  }
+  const index = Number(step_index);
+  if (!Number.isInteger(index) || index < 1) {
+    return { ok: false, reason: 'step_index must be a positive integer.' };
+  }
+  const normalizedStatus = String(status || '').trim();
+  if (!['pending', 'in_progress', 'completed', 'blocked'].includes(normalizedStatus)) {
+    return { ok: false, reason: `Unsupported step status: ${normalizedStatus}` };
+  }
+  const step = statement(`
+    SELECT id, title
+    FROM plan_steps
+    WHERE artifact_id = ? AND step_index = ?
+    LIMIT 1
+  `).get(artifact.id, index);
+  if (!step) {
+    return { ok: false, reason: `Plan step ${index} not found.` };
+  }
+
+  tx(() => {
+    statement(`
+      UPDATE plan_steps
+      SET status = ?, evidence = CASE WHEN ? = '' THEN evidence ELSE ? END,
+          owner_agent = CASE WHEN ? = '' THEN owner_agent ELSE ? END,
+          updated_at = ?
+      WHERE artifact_id = ? AND step_index = ?
+    `).run(
+      normalizedStatus,
+      normalizeWhitespace(evidence),
+      normalizeWhitespace(evidence),
+      normalizeWhitespace(owner_agent),
+      normalizeWhitespace(owner_agent),
+      nowMs(),
+      artifact.id,
+      index,
+    );
+    appendEvent(active.session_id, 'plan_step_updated', {
+      step_index: index,
+      status: normalizedStatus,
+      owner_agent: normalizeWhitespace(owner_agent) || undefined,
+      evidence: normalizeWhitespace(evidence) || undefined,
+    }, { source: 'tool', agent: normalizeWhitespace(owner_agent) || 'task-planner' });
+  });
+
+  await renderPlanArtifact(artifact.id);
+  await renderSessionViews();
+  await touchDirtyIndex();
+  return {
+    ok: true,
+    plan_file: artifact.file_path,
+    progress: planProgress(active.session_id),
   };
 }
 
@@ -1347,6 +1613,10 @@ async function delegateSpecialist({
 
   if (normalizedStatus === 'completed' && !payload.summary) {
     return { ok: false, reason: 'completed specialist handoffs require a summary.' };
+  }
+  const schemaIssues = validateDelegationPayload(agentName, normalizedStatus, payload);
+  if (schemaIssues.length) {
+    return { ok: false, reason: 'HANDOFF_SCHEMA_INVALID', issues: schemaIssues };
   }
 
   const delegationId = delegation_id || makeId('delegation');
@@ -1552,6 +1822,100 @@ function latestGateRun(sessionId, name) {
   `).get(sessionId, name);
 }
 
+function latestImplementationTouchTs(sessionId) {
+  const row = statement(`
+    SELECT MAX(ts) AS ts
+    FROM events
+    WHERE session_id = ?
+      AND kind = 'file_touched'
+      AND agent NOT IN ('qa-test-engineer', 'code-reviewer', 'security-engineer')
+      AND json_extract(payload_json, '$.path') NOT LIKE '.kavion/%'
+  `).get(sessionId);
+  return row?.ts || 0;
+}
+
+function artifactIsStale(artifact, sessionId, ttlSeconds = 1800) {
+  if (!artifact) return true;
+  const latestTouch = latestImplementationTouchTs(sessionId);
+  const tooOld = artifact.created_at < nowMs() - ttlSeconds * 1000;
+  return artifact.created_at < latestTouch || tooOld;
+}
+
+function gateRunIsStale(run, sessionId) {
+  if (!run) return true;
+  const latestTouch = latestImplementationTouchTs(sessionId);
+  const ttlSeconds = Number(run.ttl_seconds || 1800);
+  const tooOld = run.ran_at < nowMs() - ttlSeconds * 1000;
+  return run.ran_at < latestTouch || tooOld;
+}
+
+function expectedSpecialistForPath(filePath) {
+  const target = String(filePath || '').replace(/\\/g, '/').toLowerCase();
+  if (!target || target.startsWith('.kavion/')) return null;
+  if (/(^|\/)(prisma|migrations?|schema|db|database|seeds?)(\/|$)/.test(target) || /(schema|migration)\.(sql|prisma|ts|js)$/.test(target)) {
+    return 'database-engineer';
+  }
+  if (/(^|\/)(components?|pages?|app|ui|styles?|public|assets)(\/|$)/.test(target) || /\.(css|scss|sass|tsx|jsx)$/.test(target)) {
+    return 'frontend-engineer';
+  }
+  if (/(^|\/)(commands|skills|agents|mcp-server|prompts?)(\/|$)/.test(target)) {
+    return 'ai-automation-engineer';
+  }
+  if (/(^|\/)(docs|\.github|docker|k8s|helm)(\/|$)/.test(target) || /dockerfile$/i.test(target) || /\.ya?ml$/i.test(target)) {
+    return 'devops-docs-engineer';
+  }
+  if (/(^|\/)(src|server|api|controllers?|services?|routes?|handlers?|middleware|modules)(\/|$)/.test(target) || /\.(go|py|rb|php|java|kt|cs)$/.test(target)) {
+    return 'backend-engineer';
+  }
+  return null;
+}
+
+function protectedRenderedPath(filePath) {
+  const target = String(filePath || '').replace(/\\/g, '/');
+  return (
+    target === '.kavion/CURRENT.md' ||
+    target === '.kavion/session.json' ||
+    target.startsWith('.kavion/history/') ||
+    target.startsWith('.kavion/reports/') ||
+    target.startsWith('.kavion/plans/')
+  );
+}
+
+function protectedStatePath(filePath) {
+  const target = String(filePath || '').replace(/\\/g, '/');
+  return target === '.kavion/state.db' || target.startsWith('.kavion/state.db-');
+}
+
+function validateDelegationPayload(agentName, normalizedStatus, payload) {
+  const issues = [];
+  const fileCount = payload.files_changed.length;
+  const testsCount = payload.tests_run.length;
+  const risksCount = payload.risks.length + payload.issues.length;
+
+  if (normalizedStatus === 'completed') {
+    if (['backend-engineer', 'database-engineer', 'frontend-engineer', 'ai-automation-engineer', 'devops-docs-engineer'].includes(agentName) && fileCount === 0) {
+      issues.push(`${agentName} completed handoff requires files_changed.`);
+    }
+    if (agentName === 'database-engineer' && payload.risks.length === 0) {
+      issues.push('database-engineer handoff requires migration/query risk notes.');
+    }
+    if (agentName === 'security-engineer' && risksCount === 0) {
+      issues.push('security-engineer handoff requires findings or residual risk.');
+    }
+    if (agentName === 'qa-test-engineer' && testsCount === 0) {
+      issues.push('qa-test-engineer handoff requires tests_run.');
+    }
+    if (agentName === 'code-reviewer' && !payload.summary) {
+      issues.push('code-reviewer handoff requires a review summary.');
+    }
+    if (agentName === 'task-planner' && !payload.next_step) {
+      issues.push('task-planner handoff requires next_step.');
+    }
+  }
+
+  return issues;
+}
+
 function requiredSpecialistGaps(session) {
   if (!session) return [];
   const required = inferRequiredSpecialists(session.task, session.task_class);
@@ -1562,6 +1926,10 @@ function requiredSpecialistGaps(session) {
   const plannerDelegation = latestDelegationByAgent(session.session_id, 'task-planner');
   if (!planArtifact) gaps.push('Missing plan artifact.');
   if (!plannerDelegation || plannerDelegation.status !== 'completed') gaps.push('Missing completed task-planner handoff.');
+  const progress = planProgress(session.session_id);
+  if (progress && progress.total > 0 && progress.completed < progress.total) {
+    gaps.push('Plan steps are not fully completed.');
+  }
 
   for (const agent of implementationSpecialists(required)) {
     const delegation = latestDelegationByAgent(session.session_id, agent);
@@ -1580,7 +1948,9 @@ function requiredSpecialistGaps(session) {
     const testGate = latestGateRun(session.session_id, 'test');
     if (!qaDelegation || qaDelegation.status !== 'completed') gaps.push('Missing completed qa-test-engineer handoff.');
     if (!qaReport) gaps.push('Missing QA report artifact.');
+    if (qaReport && artifactIsStale(qaReport, session.session_id, defaultGateConfig.freshness.qa_ttl_seconds)) gaps.push('QA report is stale.');
     if (!testGate || !testGate.passed) gaps.push('Missing passing test gate evidence.');
+    if (testGate && gateRunIsStale(testGate, session.session_id)) gaps.push('Test gate evidence is stale.');
   }
 
   if (required.includes('code-reviewer')) {
@@ -1588,6 +1958,7 @@ function requiredSpecialistGaps(session) {
     const reviewReport = latestArtifactSync(session.session_id, 'report:review');
     if (!reviewDelegation || reviewDelegation.status !== 'completed') gaps.push('Missing completed code-reviewer handoff.');
     if (!reviewReport) gaps.push('Missing review report artifact.');
+    if (reviewReport && artifactIsStale(reviewReport, session.session_id, defaultGateConfig.freshness.review_ttl_seconds)) gaps.push('Review report is stale.');
   }
 
   if (required.includes('security-engineer')) {
@@ -1596,7 +1967,9 @@ function requiredSpecialistGaps(session) {
     const securityGate = latestGateRun(session.session_id, 'security');
     if (!securityDelegation || securityDelegation.status !== 'completed') gaps.push('Missing completed security-engineer handoff.');
     if (!securityReport) gaps.push('Missing security report artifact.');
+    if (securityReport && artifactIsStale(securityReport, session.session_id, defaultGateConfig.freshness.security_ttl_seconds)) gaps.push('Security report is stale.');
     if (securityGate && !securityGate.passed) gaps.push('Security gate is failing.');
+    if (securityGate && gateRunIsStale(securityGate, session.session_id)) gaps.push('Security gate evidence is stale.');
   }
 
   return uniq(gaps);
@@ -1614,10 +1987,14 @@ async function runGate(name) {
   if (name === 'plan') {
     const plan = active ? await latestArtifact(active.session_id, 'plan') : null;
     const plannerDelegation = active ? latestDelegationByAgent(active.session_id, 'task-planner') : null;
+    const progress = active ? planProgress(active.session_id) : null;
     const blockers = [];
     if (!plan) blockers.push('No plan artifact found.');
     if (active && active.task_class !== 'trivial' && (!plannerDelegation || plannerDelegation.status !== 'completed')) {
       blockers.push('Missing completed task-planner handoff.');
+    }
+    if (progress && progress.total > 0 && progress.completed < progress.total) {
+      blockers.push('Plan steps are not fully completed.');
     }
     return {
       gate: 'plan',
@@ -1665,6 +2042,7 @@ async function runGate(name) {
     const blockers = [];
     if (!report) blockers.push('No review report artifact found.');
     if (!reviewDelegation || reviewDelegation.status !== 'completed') blockers.push('Missing completed code-reviewer handoff.');
+    if (report && artifactIsStale(report, active.session_id, config.freshness?.review_ttl_seconds || 1800)) blockers.push('Review report is stale.');
     return {
       gate: 'review',
       result: blockers.length ? 'block' : 'pass',
@@ -1708,8 +2086,11 @@ async function runGate(name) {
       const securityReport = await latestArtifact(active.session_id, 'report:security');
       if (!securityDelegation || securityDelegation.status !== 'completed') blockers.push('Missing completed security-engineer handoff.');
       if (!securityReport) blockers.push('No security report artifact found.');
+      if (securityReport && artifactIsStale(securityReport, active.session_id, config.freshness?.security_ttl_seconds || 1800)) blockers.push('Security report is stale.');
     }
     if (commandResult && commandResult.exit_code !== 0) blockers.push('Configured security command failed.');
+    const securityRun = latestGateRun(active.session_id, 'security');
+    if (securityRun && gateRunIsStale(securityRun, active.session_id)) blockers.push('Security gate evidence is stale.');
     return {
       gate: 'security',
       result: blockers.length ? 'block' : 'pass',
@@ -1805,6 +2186,7 @@ async function getStatus() {
     session: session ? {
       ...session,
       required_specialists: inferRequiredSpecialists(session.task, session.task_class),
+      plan_progress: planProgress(session.session_id),
       files_touched: sessionFilesTouched(session.session_id),
       agents_used: sessionAgentsUsed(session.session_id),
       delegations: summarizeDelegations(session.session_id),
@@ -2146,6 +2528,55 @@ function toolTouchedPath(toolInput = {}) {
   return match.replace(/\\/g, '/');
 }
 
+async function handleBeforeToolHook(input) {
+  try {
+    await ensureWorkspaceInitialized();
+    const session = activeSessionRow();
+    if (!session) return {};
+    const toolName = input?.tool_name || input?.toolName || 'unknown_tool';
+    const touched = toolTouchedPath(input?.tool_input || {});
+    if (!touched) return {};
+
+    if (protectedStatePath(touched)) {
+      return {
+        decision: 'deny',
+        reason: 'Kavion policy: state.db is worker-owned and cannot be edited directly.',
+      };
+    }
+
+    if (protectedRenderedPath(touched)) {
+      return {
+        decision: 'deny',
+        reason: 'Kavion policy: rendered session, plan, report, and history views are worker-owned outputs.',
+      };
+    }
+
+    if (toolName === 'write_file' || toolName === 'replace') {
+      const required = inferRequiredSpecialists(session.task, session.task_class);
+      const implementationOwners = implementationSpecialists(required);
+      if (session.phase === 'code' && session.task_class !== 'trivial' && !touched.startsWith('.kavion/')) {
+        const expectedOwner = expectedSpecialistForPath(touched);
+        if (implementationOwners.length && (session.active_specialist || 'main') === 'main') {
+          return {
+            decision: 'deny',
+            reason: 'Kavion policy: start a specialist ownership window with kavion_delegate status "spawned" before code-phase edits.',
+          };
+        }
+        if (expectedOwner && implementationOwners.includes(expectedOwner) && session.active_specialist !== expectedOwner) {
+          return {
+            decision: 'deny',
+            reason: `Kavion policy: ${touched} belongs to ${expectedOwner}. Current active specialist is ${session.active_specialist || 'main'}.`,
+          };
+        }
+      }
+    }
+    return {};
+  } catch (error) {
+    await logWorker('before-tool hook failed', { error: String(error?.message || error) });
+    return fallbackHookError('before-tool unavailable');
+  }
+}
+
 async function handleAfterToolHook(input) {
   try {
     await ensureWorkspaceInitialized();
@@ -2185,6 +2616,7 @@ async function runHook(eventName) {
 
   if (eventName === 'session-start') return handleSessionStartHook(input);
   if (eventName === 'before-agent') return handleBeforeAgentHook(input);
+  if (eventName === 'before-tool') return handleBeforeToolHook(input);
   if (eventName === 'after-tool') return handleAfterToolHook(input);
 
   return {};
@@ -2247,6 +2679,20 @@ async function startMcpServer() {
       }).shape,
     },
     async (payload) => text(await planCreate(payload)),
+  );
+
+  server.registerTool(
+    'kavion_plan_step_update',
+    {
+      description: 'Update a persisted plan step status, evidence, or owner for the active session.',
+      inputSchema: z.object({
+        step_index: z.number().int().min(1),
+        status: z.enum(['pending', 'in_progress', 'completed', 'blocked']),
+        evidence: z.string().default(''),
+        owner_agent: z.string().default(''),
+      }).shape,
+    },
+    async (payload) => text(await planStepUpdate(payload)),
   );
 
   server.registerTool(
