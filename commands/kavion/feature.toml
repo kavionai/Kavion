@@ -24,6 +24,8 @@ Required flow:
    - For auth, RBAC, permissions, secrets, or sensitive user data, `security-engineer` is required before completion.
    - `qa-test-engineer` and `code-reviewer` are required before final completion for non-trivial work.
    - Do not keep substantial backend or database implementation in the main agent when those specialists are required.
+   - After each specialist finishes, persist a handoff with `kavion_delegate`.
+     - Include summary, files_changed, tests_run, risks, blockers, next_step, and downstream_context.
 6. After each meaningful phase transition, use `kavion_session_transition`.
    - `init -> plan`
    - `plan -> code`
@@ -40,12 +42,18 @@ Required flow:
    - Persist code review reports.
    - Persist security reports when sensitive work is involved.
    - Prefer MCP tool `kavion_report_create` when available.
-10. Before final response, update shared state through the worker.
+10. Before final response, verify required specialist handoffs exist.
+   - `task-planner` handoff plus a plan artifact
+   - implementation specialist handoffs for required domains
+   - `qa-test-engineer` handoff plus QA evidence
+   - `code-reviewer` handoff plus review evidence
+   - `security-engineer` handoff plus security evidence when required
+11. Before final response, update shared state through the worker.
    - Let Kavion render `.kavion/CURRENT.md` and `.kavion/session.json`.
    - Update `.kavion/DECISIONS.md` only for real decisions.
-11. Refresh `.kavion/index/` after meaningful memory changes.
-12. Run a checkpoint before calling the task done.
-13. Final response must explicitly state which specialist agents were used and what each one owned.
+12. Refresh `.kavion/index/` after meaningful memory changes.
+13. Run a checkpoint before calling the task done.
+14. Final response must explicitly state which specialist agents were used, what each one owned, and which `kavion_delegate` handoffs were recorded.
 
 Do not auto-load large memory files.
 Do not finish Standard work without plan/report files unless writes are blocked and deferred clearly.

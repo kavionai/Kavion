@@ -7,6 +7,7 @@ Kavion has five main parts:
 3. specialist agent prompts
 4. slash command workflows
 5. worker-backed MCP runtime for memory, search, migration, and gates
+6. worker-backed specialist delegation and handoff tracking
 
 ## Memory Model
 
@@ -60,6 +61,15 @@ The v1 hook set is:
 - `AfterTool`
 
 These hooks call the worker, not direct file mutations.
+
+## Delegation Model
+
+Kavion now treats specialist work as worker-backed session evidence, not just prompt intent.
+
+- required specialists are inferred from task scope
+- each specialist should produce a structured handoff through `kavion_delegate`
+- ship/archive fail when required handoffs or required reports are missing
+- the main agent remains coordinator, not the primary implementer for Standard work
 
 ## Migration
 

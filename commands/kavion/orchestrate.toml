@@ -14,19 +14,21 @@ Required behavior:
    - `.kavion/session.json`
 3. Read `.kavion/CURRENT.md` first.
 4. Read `.kavion/PROJECT.md` or `.kavion/DECISIONS.md` only when relevant.
-5. For Standard work, create or update `.kavion/session.json` and write a plan under `.kavion/plans/`.
-   - Prefer MCP tools `kavion_update_session` and `kavion_write_plan` when available.
-   - Record phase, status, active_agent, next_step, and active specialists.
+5. For Standard work, use the worker-backed session and plan tools.
+   - Prefer MCP tools `kavion_session_start`, `kavion_session_transition`, and `kavion_plan_create`.
+   - Record phase, status, next_step, and required specialists in worker state.
 6. Delegate only to the needed specialist agents.
-7. After each phase transition, update `.kavion/session.json` again.
-   - Do not leave the active agent set to `task-planner` after implementation delegation starts.
+   - Persist each specialist handoff with `kavion_delegate`.
+   - Do not leave the workflow with implied specialist work and no recorded handoff.
+7. After each phase transition, update worker state again.
+   - Do not leave the active flow stuck on `task-planner` after implementation delegation starts.
 8. Use real commands and gates for verification.
 9. Write reports under `.kavion/reports/` when verification/review/security actually happens.
-   - Prefer MCP tool `kavion_write_report` when available.
+   - Prefer MCP tool `kavion_report_create` when available.
 10. If research or debugging produces reusable findings, write a note under `.kavion/notes/`.
-11. Update `.kavion/CURRENT.md` and session state before the final response.
+11. Update `.kavion/CURRENT.md` and session state before the final response through the worker.
 12. Refresh `.kavion/index/` after memory changes.
-13. Run a checkpoint before handoff.
+13. Run a checkpoint before handoff and do not claim completion if required specialist handoffs are missing.
 
 Do not call every agent by default.
 Do not read large memory files unless the task needs them.

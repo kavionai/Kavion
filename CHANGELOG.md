@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 - 2026-04-28
+
+- Added worker-backed `kavion_delegate` specialist handoffs so required team work is recorded structurally instead of relying on prompt intent alone.
+- Surfaced delegation summaries and handoff gaps in rendered session state and status output.
+- Tightened plan, review, security, ship, and archive behavior so completion is blocked when required specialist handoffs or required evidence are missing.
+- Updated orchestration prompts, handoff guidance, and MCP docs for the stronger team runtime.
+
 ## 0.2.4 - 2026-04-27
 
 - Fixed `/kavion:start` so it is a strict session-bootstrap flow rather than an implementation command.

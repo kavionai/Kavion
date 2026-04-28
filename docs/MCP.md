@@ -9,6 +9,7 @@ Kavion uses a worker-backed MCP server for SQLite state, rendered views, search,
 - `kavion_session_transition`
 - `kavion_plan_create`
 - `kavion_report_create`
+- `kavion_delegate`
 - `kavion_archive_session`
 - `kavion_build_index`
 - `kavion_search`
@@ -54,6 +55,22 @@ The gate model prefers:
 - git state
 - report freshness
 - session state
+
+## Delegation
+
+`kavion_delegate` records a specialist handoff in worker state.
+
+Use it to persist:
+
+- specialist name
+- summary
+- files changed
+- tests run
+- risks and blockers
+- next step
+- downstream context for QA, security, review, or docs
+
+Ship and archive are now blocked when required specialist handoffs are missing.
 
 ## Install
 
