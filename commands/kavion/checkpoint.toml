@@ -6,7 +6,7 @@ Run a Kavion workflow checkpoint for the current project.
 Use MCP tool `kavion_gate` with `ship` when available.
 
 Check:
-- `.kavion/session.json`
+- worker-backed session state and rendered `.kavion/session.json`
 - `.kavion/PROJECT.md`
 - `.kavion/CURRENT.md`
 - `.kavion/plans/`

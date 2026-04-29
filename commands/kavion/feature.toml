@@ -41,10 +41,11 @@ Required flow:
    - Do not create notes for trivial one-off observations.
 8. For verification, prefer real commands and gate checks over self-reported claims.
 9. For Standard work, keep evidence reports under `.kavion/reports/`.
-   - Persist QA/test reports.
-   - Persist code review reports.
-   - Persist security reports when sensitive work is involved.
+   - Persist QA/test reports only for verification outcomes.
+   - Persist code review reports only for review outcomes.
+   - Persist security reports only for security outcomes when sensitive work is involved.
    - Prefer MCP tool `kavion_report_create` when available.
+   - Never use reports for execution-step logging or general progress notes.
 10. Before final response, verify required specialist handoffs exist.
    - `task-planner` handoff plus a plan artifact
    - implementation specialist handoffs for required domains

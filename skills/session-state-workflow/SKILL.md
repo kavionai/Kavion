@@ -44,7 +44,8 @@ The live session should record:
 4. Do not leave the phase at `plan` once implementation has started.
 5. Keep session state concise.
 6. Store detailed plans in `.kavion/plans/`.
-7. Store review or QA reports in `.kavion/reports/`.
+7. Store only canonical QA, review, or security reports in `.kavion/reports/`.
+   - Execution-step progress belongs in plan steps and delegation records, not report files.
 8. Store reusable investigation notes in `.kavion/notes/` when needed.
 9. Archive completed sessions into `.kavion/history/` instead of deleting them.
 10. If the runtime is read-only or approval for writes is unavailable, continue the task and report session-state updates as deferred.

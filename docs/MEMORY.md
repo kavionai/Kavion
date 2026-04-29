@@ -53,7 +53,8 @@ Kavion uses a smaller, stricter memory model.
   - multi-step work plans
 
 - `reports/`
-  - gate evidence and review output
+  - canonical QA, review, and security evidence only
+  - not for execution-step logs or generic progress notes
 
 - `notes/`
   - optional research/debug notes

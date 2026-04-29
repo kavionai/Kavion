@@ -11,6 +11,7 @@ Required flow:
 5. Let Kavion render `.kavion/session.json` back to idle state.
 6. Let Kavion render `.kavion/CURRENT.md` if the active task is complete.
 7. Refresh the local index under `.kavion/index/`.
+8. Do not create extra report artifacts during archive; archive closes state, it does not log execution progress.
 
 Do not delete useful history.
 Do not claim release-ready if ship gate is blocked.

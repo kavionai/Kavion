@@ -15,6 +15,7 @@ Use this skill when changes touch sensitive behavior or external input.
 5. Recommend concrete fixes and tests.
 6. State residual risk.
 7. For Standard or sensitive work, write a security report under `.kavion/reports/`.
+8. Do not create implementation-progress files in `.kavion/reports/`.
 
 ## Review checklist
 

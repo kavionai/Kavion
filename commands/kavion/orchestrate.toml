@@ -27,6 +27,7 @@ Required behavior:
 8. Use real commands and gates for verification.
 9. Write reports under `.kavion/reports/` when verification/review/security actually happens.
    - Prefer MCP tool `kavion_report_create` when available.
+   - Do not write execution-step or implementation-progress files into `.kavion/reports/`.
 10. If research or debugging produces reusable findings, write a note under `.kavion/notes/`.
 11. Update `.kavion/CURRENT.md` and session state before the final response through the worker.
 12. Refresh `.kavion/index/` after memory changes.

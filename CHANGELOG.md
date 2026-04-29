@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1 - 2026-04-29
+
+- Fixed report artifact discipline so only canonical QA, review, and security reports belong under `.kavion/reports/`.
+- Renamed worker-generated reports to `qa-<task>.md`, `review-<task>.md`, and `security-<task>.md` for cleaner layout.
+- Added report payload validation to reject execution-step logging disguised as reports and require stronger QA/review/security evidence.
+- Tightened stale command prompts and skills that still encouraged loose session/report handling.
+
 ## 0.4.0 - 2026-04-29
 
 - Added active implementation ownership enforcement through `BeforeTool`, so rendered views and SQLite state cannot be hand-edited and Standard code work must run inside an active specialist ownership window.
