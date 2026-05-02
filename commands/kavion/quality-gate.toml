@@ -1,7 +1,7 @@
-description = "Run Kavion final quality gate before completion or PR."
+description = "Compatibility alias for the final Kavion ship gate."
 
 prompt = """
-Run the Kavion quality gate.
+Run the Kavion ship gate and summarize final workflow quality.
 
 Consult these Kavion skill files as workflow guidance:
 - quality-gate
@@ -11,7 +11,7 @@ Consult these Kavion skill files as workflow guidance:
 - github-workflow
 - project-memory-workflow
 
-Use MCP tool `kavion_check_workflow` when available after normal quality checks.
+Use MCP tool `kavion_gate` with `ship` when available after normal quality checks.
 
 Required checks:
 1. Requirements and acceptance criteria are satisfied.
@@ -21,7 +21,7 @@ Required checks:
 5. Code review found no blocking issues.
 6. Docs or project memory were updated when needed.
 7. GitHub branch, issue, and PR state are clear if applicable.
-8. Workflow checkpoint passes or reports exact risks/blockers.
+8. Workflow ship gate passes or reports exact risks/blockers.
 
 Return one decision:
 - pass
@@ -29,4 +29,5 @@ Return one decision:
 - block
 
 Do not return `pass` when QA is deferred, code review is missing, security review is missing for sensitive work, blockers remain, or memory index is stale.
+This command is a compatibility alias. Prefer `/kavion:gate ship` in normal user flows.
 """

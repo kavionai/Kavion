@@ -26,4 +26,6 @@ Rules:
 3. Use heading-aware chunks when possible.
 4. Do not index secrets or `.env` files.
 5. If no memory files exist, report that `/kavion:init-project` should run first.
+
+This command is mainly an advanced/manual fallback. In normal flows, the worker should refresh the index without asking the user to run this command.
 """

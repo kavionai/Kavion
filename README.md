@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kalpeshchouhan/Kavion"><img alt="Version" src="https://img.shields.io/badge/version-0.5.0-202124"></a>
+  <a href="https://github.com/kalpeshchouhan/Kavion"><img alt="Version" src="https://img.shields.io/badge/version-0.6.0-202124"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-00A887"></a>
   <img alt="AI Coding CLI" src="https://img.shields.io/badge/AI%20coding%20CLI-extension-4C7BE8">
   <img alt="MCP" src="https://img.shields.io/badge/MCP-supported-D9A000">
@@ -53,6 +53,35 @@ Inside the CLI:
 ```
 
 For most users, `/kavion:feature` is the only command needed to begin serious work. It starts or resumes the session internally when needed. `/kavion:start` remains available for explicit session control.
+
+## Primary Commands
+
+Most users only need this smaller command set:
+
+```text
+/kavion:init-project
+/kavion:feature "Build ..."
+/kavion:fix-issue "Fix ..."
+/kavion:review
+/kavion:status
+/kavion:resume
+/kavion:gate ship
+/kavion:archive
+/kavion:search "query"
+/kavion:migrate
+```
+
+Advanced or compatibility commands still exist, but they are no longer the main documented path:
+
+- `/kavion:start`
+- `/kavion:checkpoint`
+- `/kavion:release-readiness`
+- `/kavion:quality-gate`
+- `/kavion:session-update`
+- `/kavion:memory-update`
+- `/kavion:memory-index`
+- `/kavion:memory-search`
+- `/kavion:dashboard`
 
 ## Memory Layout
 

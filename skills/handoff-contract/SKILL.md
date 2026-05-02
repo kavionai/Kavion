@@ -41,7 +41,7 @@ For docs/memory:
 - Do not claim ready for use, release-ready, or complete when QA is deferred or workflow gates block.
 - Separate confirmed facts from assumptions.
 - Include blockers explicitly.
-- Include checkpoint or release-readiness decision when available.
+- Include ship-gate decision when available.
 - Record the same facts in `kavion_delegate`:
   - `status` (`spawned` before implementation, then `completed`, `failed`, or `needs_context`)
   - `agent`

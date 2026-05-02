@@ -5,9 +5,11 @@ Resume the current Kavion task.
 
 Required:
 1. Prefer MCP tool `kavion_session_start` with no task title to resume the active worker-backed session.
-2. Read `.kavion/CURRENT.md`.
-3. Read `.kavion/PROJECT.md` or `.kavion/DECISIONS.md` only if needed.
-4. Continue from the saved next step.
+2. Call `kavion_status` after resuming so the user immediately gets the live task state.
+3. Read `.kavion/CURRENT.md`.
+4. Read `.kavion/PROJECT.md` or `.kavion/DECISIONS.md` only if needed.
+5. Continue from the saved next step.
 
 Do not restart planning from scratch if a valid session and plan already exist.
+Do not make the user run `/kavion:status` separately just to understand the resumed state.
 """

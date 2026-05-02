@@ -14,4 +14,5 @@ Required:
 
 Do not turn CURRENT.md into a long archive.
 Do not duplicate the same fact across many files.
+This command is advanced maintenance. Normal users should not need it in the primary workflow.
 """

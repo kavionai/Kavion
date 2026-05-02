@@ -42,29 +42,39 @@ For non-trivial coding work:
     - Non-trivial work is not complete until required specialist handoffs exist.
 15. Use `kavion_report_create` for QA, review, and security reports.
 16. Before final response, keep shared state in the worker. Let Kavion render `.kavion/CURRENT.md` and `.kavion/session.json`.
-17. After meaningful memory changes, refresh `.kavion/index/` using `kavion_build_index` when MCP is available, or `/kavion:memory-index` when it is not.
+17. After meaningful memory changes, refresh `.kavion/index/` using `kavion_build_index` when MCP is available. `/kavion:memory-index` is an advanced/manual fallback, not the normal user path.
 18. Do not call work release-ready when ship gate blocks. Archive is blocked when required specialist handoffs or gate evidence are missing.
 19. Do not hand-edit rendered Kavion views or worker state files.
     - `.kavion/CURRENT.md`, `.kavion/session.json`, `.kavion/plans/*`, `.kavion/reports/*`, and `.kavion/history/*` are worker-rendered outputs.
     - `.kavion/state.db` and SQLite sidecars are worker-owned.
 
 Do not treat memory as optional for non-trivial work.
-Final responses for non-trivial work must include a Memory section showing updated, unchanged, or deferred memory files, index refresh status, and gate/checkpoint status.
+Final responses for non-trivial work must include a Memory section showing updated, unchanged, or deferred memory files, index refresh status, and gate status.
 
-## Preferred Commands
+## Primary Commands
+
+These are the main user-facing commands:
 
 - `/kavion:init-project`
+- `/kavion:feature`
+- `/kavion:fix-issue`
+- `/kavion:review`
+- `/kavion:status`
+- `/kavion:resume`
+- `/kavion:gate`
+- `/kavion:archive`
+- `/kavion:search`
+- `/kavion:migrate`
+
+## Advanced And Compatibility Commands
+
+These still exist, but they should not be the default user path:
+
 - `/kavion:start`
 - `/kavion:orchestrate`
-- `/kavion:fix-issue`
-- `/kavion:feature`
 - `/kavion:debug`
-- `/kavion:review`
 - `/kavion:pr`
-- `/kavion:status`
 - `/kavion:session-update`
-- `/kavion:resume`
-- `/kavion:archive`
 - `/kavion:quality-gate`
 - `/kavion:checkpoint`
 - `/kavion:workflow-audit`
@@ -75,9 +85,6 @@ Final responses for non-trivial work must include a Memory section showing updat
 - `/kavion:memory-audit`
 - `/kavion:memory-compact`
 - `/kavion:dashboard`
-- `/kavion:gate`
-- `/kavion:migrate`
-- `/kavion:search`
 
 If a normal workflow step is skipped, briefly explain why.
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0 - 2026-05-03
+
+- Simplified the documented Kavion command surface around a smaller primary set: `feature`, `fix-issue`, `review`, `status`, `resume`, `gate`, `archive`, `search`, and `migrate`.
+- Repositioned `checkpoint`, `release-readiness`, `quality-gate`, `memory-search`, `memory-index`, `memory-update`, `session-update`, and `dashboard` as advanced or compatibility commands instead of normal user-facing flow.
+- Updated `resume` guidance so it returns live status immediately instead of making users run a separate status command.
+- Updated README and workflow docs to stop teaching redundant commands as first-class defaults.
+
 ## 0.5.0 - 2026-05-03
 
 - Made `/kavion:feature` the default user entrypoint for serious feature work by documenting and enforcing internal session bootstrap.
