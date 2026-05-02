@@ -20,12 +20,13 @@ Use this skill to maintain long-term project memory without wasting context.
 
 1. Read `CURRENT.md` first.
 2. Read `PROJECT.md` and `DECISIONS.md` only when the task needs them.
-3. Sync live task state into `session.json`.
+3. Keep live task state in the worker and let it render `session.json`.
 4. Promote only durable repo truths into `PROJECT.md`.
 5. Promote only real technical decisions into `DECISIONS.md`.
 6. Keep detailed research or debugging in `notes/` only when it will be reused.
 7. Keep multi-step roadmaps in `plans/`.
-8. Keep gate evidence in `reports/`.
+8. Keep only canonical QA, review, and security evidence in `reports/`.
+   Execution progress belongs in plans, notes, or specialist handoffs instead.
 9. Rebuild the local index after meaningful memory changes.
 
 ## Hygiene rules
@@ -38,6 +39,6 @@ Use this skill to maintain long-term project memory without wasting context.
 
 ## Local index rules
 
-- Files are the source of truth.
+- Worker state plus rendered memory files are the source of truth.
 - `.kavion/index/` is a rebuildable BM25 cache.
 - Search results are hints; read the source file before relying on a recalled chunk.

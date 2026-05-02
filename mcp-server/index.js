@@ -10,7 +10,7 @@ import { spawn } from 'node:child_process';
 import MiniSearch from '../vendor/mcp-runtime/node_modules/minisearch/dist/es/index.js';
 import YAML from '../vendor/mcp-runtime/node_modules/yaml/dist/index.js';
 
-const serverVersion = '0.4.0';
+const serverVersion = '0.4.1';
 
 const modulePath = fileURLToPath(import.meta.url);
 const serverDir = path.dirname(modulePath);
@@ -792,6 +792,33 @@ function planProgress(sessionId) {
   };
 }
 
+function isExecutionLogTitle(title) {
+  const normalized = normalizeWhitespace(title).toLowerCase();
+  return /(^|\b)(execute-step|implementation step|plan step|step \d+ of the implementation)\b/.test(normalized);
+}
+
+function validateReportPayload(kind, { title = '', summary = '', commands = [], verified = [], evidence = [] } = {}) {
+  const issues = [];
+  const normalizedTitle = normalizeWhitespace(title);
+  const normalizedSummary = normalizeWhitespace(summary);
+  if (normalizedTitle && isExecutionLogTitle(normalizedTitle)) {
+    issues.push('Reports must not be used for plan-step or execution-step logging. Use kavion_plan_step_update or kavion_delegate instead.');
+  }
+  if (normalizedSummary && /^execut(e|ed)\s+step\b/i.test(normalizedSummary)) {
+    issues.push('Report summary looks like execution logging. Persist execution progress through plan steps or specialist handoffs, not reports.');
+  }
+  if (kind === 'report:qa' && !commands.length && !verified.length) {
+    issues.push('QA reports require commands or verified checks.');
+  }
+  if (kind === 'report:review' && !normalizedSummary) {
+    issues.push('Review reports require a summary.');
+  }
+  if (kind === 'report:security' && !normalizedSummary && !evidence.length) {
+    issues.push('Security reports require a summary or evidence.');
+  }
+  return issues;
+}
+
 function appendEvent(sessionId, kind, payload = {}, { source = 'tool', agent = 'main' } = {}) {
   const ts = nowMs();
   const result = statement(`
@@ -1439,7 +1466,7 @@ async function planStepUpdate({
 function reportFilename(session, kind) {
   const slug = slugify(session.task);
   const suffix = kind.replace(/^report:/, '');
-  return `${slug}-${suffix}.md`;
+  return `${suffix}-${slug}.md`;
 }
 
 async function reportCreate({
@@ -1461,6 +1488,10 @@ async function reportCreate({
   const normalizedKind = String(kind || '').trim();
   if (!['report:qa', 'report:review', 'report:security'].includes(normalizedKind)) {
     return { ok: false, reason: `Unsupported report kind: ${normalizedKind}` };
+  }
+  const reportIssues = validateReportPayload(normalizedKind, { title, summary, commands, verified, evidence });
+  if (reportIssues.length) {
+    return { ok: false, reason: 'REPORT_SCHEMA_INVALID', issues: reportIssues };
   }
 
   const filePath = path.join(reportsRoot, reportFilename(active, normalizedKind));
@@ -1492,6 +1523,11 @@ ${verified.length ? verified.map((item) => `- ${item}`).join('\n') : '- none'}
   const fileContent = await readText(filePath);
   tx(() => {
     const artifactId = makeId('artifact');
+    statement(`
+      UPDATE artifacts
+      SET superseded_by = ?
+      WHERE session_id = ? AND kind = ? AND superseded_by IS NULL
+    `).run(artifactId, active.session_id, normalizedKind);
     statement(`
       INSERT INTO artifacts(id, session_id, kind, payload_json, file_path, file_sha256, created_at)
       VALUES(?, ?, ?, ?, ?, ?, ?)

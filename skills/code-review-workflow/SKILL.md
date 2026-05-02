@@ -15,7 +15,8 @@ Use this skill before finalizing code changes.
 5. Prioritize real bugs over style preferences.
 6. Return concise findings ordered by severity.
 7. For Standard work, write a code review report under `.kavion/reports/`.
-8. Prefer MCP tool `kavion_write_report` when available.
+8. Prefer MCP tool `kavion_report_create` when available.
+9. Review reports summarize findings and readiness only. Do not use them for execution-step tracking.
 
 ## Finding criteria
 

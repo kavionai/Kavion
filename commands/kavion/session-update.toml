@@ -4,9 +4,9 @@ prompt = """
 Update Kavion session state for the current task.
 
 Required:
-1. Inspect `.kavion/session.json`.
-2. If no active session exists and the task is non-trivial, create a concise session state.
-3. Update the live session with:
+1. Inspect worker-backed session state and rendered `.kavion/session.json`.
+2. If no active session exists and the task is non-trivial, start or resume it through the worker.
+3. Update the live session through the worker with:
    - current phase
    - active agent
    - agents used
@@ -16,7 +16,8 @@ Required:
    - next step
    - last update time
 4. If a detailed plan exists, keep it under `.kavion/plans/`.
-5. If review or QA output exists, keep it under `.kavion/reports/`.
+5. If review, QA, or security output exists, keep it under canonical report files in `.kavion/reports/`.
+   - Do not store execution-step logs there.
 6. If there are reusable debugging or investigation findings, keep them under `.kavion/notes/`.
 7. Refresh `.kavion/index/` after session updates.
 

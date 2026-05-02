@@ -17,5 +17,5 @@ Allowed gates:
 - ship
 
 Prefer real command output and filesystem state over self-reported claims.
-If a gate writes a report, store it under `.kavion/reports/`.
+If a gate produces a persisted artifact, it must be a canonical QA, review, or security report under `.kavion/reports/`, not a step log.
 """

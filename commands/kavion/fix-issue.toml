@@ -9,16 +9,18 @@ Use the Kavion bug-fix workflow.
 Required flow:
 1. Read `.kavion/CURRENT.md` first.
 2. Read `.kavion/PROJECT.md` and `.kavion/DECISIONS.md` only if needed.
-3. Create or update `.kavion/session.json`.
-   - Prefer MCP tool `kavion_update_session` when available.
+3. Use worker-backed session state.
+   - Prefer MCP tools `kavion_session_start`, `kavion_session_transition`, and `kavion_update_session` when available.
+   - Do not hand-edit `.kavion/session.json`; it is a rendered view.
 4. For multi-step fixes, write a plan under `.kavion/plans/`.
    - Prefer MCP tool `kavion_plan_create` when available.
 5. Diagnose root cause before implementation.
-6. Update session state when the fix moves from diagnosis to implementation to verification.
+6. Use `kavion_plan_step_update` and `kavion_delegate` to track step execution and specialist ownership when the fix is not trivial.
 7. If diagnosis produced reusable debugging knowledge, persist a note under `.kavion/notes/`.
 8. Verify with real commands and gates, not only narrative claims.
-9. Write evidence reports under `.kavion/reports/` when useful.
-   - Prefer MCP tool `kavion_write_report` when available.
-10. Before final response, update `.kavion/CURRENT.md`, session state, and the index.
-11. Run a checkpoint before calling the issue fixed.
+9. Write evidence reports under `.kavion/reports/` only for QA, review, or security outcomes.
+   - Prefer MCP tool `kavion_report_create` when available.
+   - Do not create execution-step files in `.kavion/reports/`.
+10. Before final response, update `.kavion/CURRENT.md`, session state, and the index through the worker.
+11. Run the relevant gates before calling the issue fixed.
 """

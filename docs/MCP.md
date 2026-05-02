@@ -95,6 +95,16 @@ Use it to persist:
 
 Plan steps are rendered back into the plan markdown artifact, surfaced in status output, and checked by the plan and ship gates.
 
+## Report Discipline
+
+`kavion_report_create` is only for final evidence artifacts:
+
+- `report:qa` -> `qa-<task>.md`
+- `report:review` -> `review-<task>.md`
+- `report:security` -> `security-<task>.md`
+
+Execution-step logging does not belong in `reports/`. Use `kavion_plan_step_update` for step progress and `kavion_delegate` for specialist handoffs.
+
 ## Install
 
 From `mcp-server/`:
