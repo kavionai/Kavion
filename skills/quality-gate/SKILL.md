@@ -4,7 +4,7 @@ description: Use this skill before finishing or preparing a PR to check requirem
 ---
 # Quality gate
 
-Use this skill before finalizing non-trivial work.
+Use this skill before finalizing non-trivial work or running the final ship gate.
 
 ## Gate checklist
 
@@ -18,7 +18,7 @@ Check:
 - Code review found no blocking issues.
 - Docs or project memory were updated when needed.
 - GitHub branch, issue, and PR state are clear.
-- Workflow checkpoint passes.
+- Workflow ship gate passes.
 - Release readiness is not claimed when QA is deferred.
 - Standard work has a persisted plan under `.kavion/plans/`.
 - Standard work has QA/test and code-review reports under `.kavion/reports/`.

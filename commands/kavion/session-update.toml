@@ -1,4 +1,4 @@
-description = "Update Kavion task session state after meaningful progress."
+description = "Advanced maintenance command for Kavion session state."
 
 prompt = """
 Update Kavion session state for the current task.
@@ -23,4 +23,5 @@ Required:
 
 Do not rewrite unrelated memory files.
 Do not archive the active session unless the task is complete or explicitly paused.
+This command is advanced maintenance. Normal users should not need it in the primary workflow.
 """

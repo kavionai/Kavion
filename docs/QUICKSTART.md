@@ -24,12 +24,17 @@ Inside Gemini CLI:
 
 Use `/kavion:feature` as the normal entrypoint. It auto-starts or resumes the worker-backed session. `/kavion:start` is optional and mainly useful when you want explicit session control before implementation.
 
-Kavion commands:
+Primary Kavion commands:
 
 ```text
 /kavion:init-project
+/kavion:feature "Build ..."
+/kavion:fix-issue "Fix ..."
+/kavion:review
 /kavion:status
+/kavion:resume
 /kavion:gate ship
+/kavion:archive
 /kavion:migrate
 /kavion:search "current task"
 ```

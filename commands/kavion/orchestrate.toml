@@ -31,7 +31,7 @@ Required behavior:
 10. If research or debugging produces reusable findings, write a note under `.kavion/notes/`.
 11. Update `.kavion/CURRENT.md` and session state before the final response through the worker.
 12. Refresh `.kavion/index/` after memory changes.
-13. Run a checkpoint before handoff and do not claim completion if required specialist handoffs are missing.
+13. Run `/kavion:gate ship` before handoff and do not claim completion if required specialist handoffs are missing.
 14. Do not hand-edit rendered Kavion outputs. Keep session, plan, report, and history state in the worker.
 
 Do not call every agent by default.

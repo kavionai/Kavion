@@ -14,7 +14,7 @@ Use:
 /kavion:gate ship
 ```
 
-The older `/kavion:checkpoint` and `/kavion:release-readiness` commands remain as compatibility wrappers around the ship gate.
+The older `/kavion:checkpoint`, `/kavion:release-readiness`, and `/kavion:quality-gate` commands remain as compatibility wrappers around the ship gate. The primary user command is `/kavion:gate ship`.
 
 ## What Gates Check
 

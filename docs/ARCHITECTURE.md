@@ -91,6 +91,11 @@ Kavion now treats `/kavion:feature` as the default user entrypoint for serious f
 - `/kavion:start` remains available for explicit session bootstrap and inspection
 - the worker lifecycle stays the same; this is a user-facing command simplification, not a separate state model
 
+The broader user-facing command surface is intentionally compressed:
+
+- primary commands: `init-project`, `feature`, `fix-issue`, `review`, `status`, `resume`, `gate`, `archive`, `search`, `migrate`
+- advanced or compatibility commands: `start`, `checkpoint`, `release-readiness`, `quality-gate`, `session-update`, `memory-update`, `memory-index`, `memory-search`, `dashboard`
+
 ## Migration
 
 The worker can migrate the older file-first Kavion session flow into SQLite-backed state while preserving existing plans, reports, and notes.

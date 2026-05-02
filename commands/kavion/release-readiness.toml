@@ -18,4 +18,6 @@ Return:
 - ready or not-ready
 - exact blocking gate
 - next command
+
+This command is a compatibility alias. Prefer `/kavion:gate ship` in normal user flows.
 """

@@ -20,4 +20,6 @@ Return:
 - latest plans
 - latest reports
 - recommended next command
+
+This command is a compatibility alias. Prefer `/kavion:status` in normal user flows.
 """

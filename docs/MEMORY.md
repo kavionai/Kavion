@@ -89,14 +89,14 @@ Kavion indexes memory into:
 Use:
 
 ```text
-/kavion:memory-index
-/kavion:memory-search "query"
+/kavion:search "query"
 ```
 
-or:
+Advanced/manual fallbacks still exist:
 
 ```text
-/kavion:search "query"
+/kavion:memory-index
+/kavion:memory-search "query"
 ```
 
 ## Migration

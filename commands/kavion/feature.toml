@@ -60,7 +60,7 @@ Required flow:
    - Let Kavion render `.kavion/CURRENT.md` and `.kavion/session.json`.
    - Update `.kavion/DECISIONS.md` only for real decisions.
 12. Refresh `.kavion/index/` after meaningful memory changes.
-13. Run a checkpoint before calling the task done.
+13. Run `/kavion:gate ship` before calling the task done.
 14. Final response must explicitly state which specialist agents were used, what each one owned, and which `kavion_delegate` handoffs were recorded.
 15. Do not hand-edit `.kavion/CURRENT.md`, `.kavion/session.json`, `.kavion/plans/*`, or `.kavion/reports/*`; they are worker-rendered or worker-managed.
 

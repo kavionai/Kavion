@@ -17,4 +17,6 @@ Search:
 - `.kavion/notes/`
 
 Return the best matching chunks first. Read full files only when the chunks are not enough.
+
+This command is a compatibility alias. Prefer `/kavion:search` in normal user flows.
 """
