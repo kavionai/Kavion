@@ -21,10 +21,11 @@ For non-trivial coding work:
 2. Check whether Kavion project memory exists. If `KAVION.md` or `.kavion/CURRENT.md` is missing, initialize project memory first.
 3. Read `.kavion/CURRENT.md` first.
 4. Read `.kavion/PROJECT.md` and `.kavion/DECISIONS.md` only when the task actually needs them.
-5. For non-trivial work, start or resume the worker-backed session before implementation.
+5. For non-trivial work, make sure the worker-backed session exists before implementation.
    - Prefer MCP tool `kavion_session_start`.
+   - `/kavion:feature`, `/kavion:fix-issue`, and `/kavion:orchestrate` may bootstrap that session internally when it does not exist yet.
    - Do not hand-edit `.kavion/session.json`; it is a rendered view.
-   - `/kavion:start` is session bootstrap only. It must not begin implementation.
+   - `/kavion:start` remains available for explicit session bootstrap, but it is optional.
 6. Use `kavion_session_transition` to move between `init`, `plan`, `code`, `test`, `review`, and `ship`.
 7. Use `kavion_plan_create` for multi-step work. Medium work must not enter `code` phase without a plan artifact.
 8. For Standard work, use `task-planner` before implementation.

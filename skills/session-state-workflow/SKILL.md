@@ -39,6 +39,8 @@ The live session should record:
 ## Workflow
 
 1. Start or resume the worker-backed session before medium or complex execution.
+   - In normal user flow, `/kavion:feature`, `/kavion:fix-issue`, or `/kavion:orchestrate` may do this automatically.
+   - `/kavion:start` is optional explicit control, not a required first step.
 2. Use session transitions for each meaningful phase.
 3. Record the current active agent or responsible specialist when the phase changes.
 4. Do not leave the phase at `plan` once implementation has started.

@@ -1,4 +1,4 @@
-description = "Start or resume the current Kavion session."
+description = "Optional explicit bootstrap for the current Kavion session."
 
 prompt = """
 Start or resume a Kavion session for this task.
@@ -9,7 +9,7 @@ User input:
 Use MCP tool `kavion_session_start` when available.
 
 Rules:
-1. This command is session bootstrap only. Do not implement the task.
+1. This command is optional advanced session bootstrap only. Do not implement the task.
 2. Call `kavion_session_start` and then `kavion_status`.
 3. Do not hand-edit `.kavion/session.json`; it is rendered from `.kavion/state.db`.
 4. If no task title is supplied, resume the active session if one exists.
@@ -23,4 +23,5 @@ Rules:
    - next step
    - required specialists
    - which follow-up command to run next (`/kavion:feature`, `/kavion:fix-issue`, or `/kavion:resume`)
+9. If the user just wants to build the feature, `/kavion:feature` should normally be recommended instead of this command.
 """

@@ -83,6 +83,14 @@ Kavion now treats specialist work as worker-backed session evidence, not just pr
 - stale QA, review, and security evidence also block completion
 - the main agent remains coordinator, not the primary implementer for Standard work
 
+## Entry Points
+
+Kavion now treats `/kavion:feature` as the default user entrypoint for serious feature work.
+
+- `/kavion:feature` should auto-start or resume the worker-backed session when needed
+- `/kavion:start` remains available for explicit session bootstrap and inspection
+- the worker lifecycle stays the same; this is a user-facing command simplification, not a separate state model
+
 ## Migration
 
 The worker can migrate the older file-first Kavion session flow into SQLite-backed state while preserving existing plans, reports, and notes.

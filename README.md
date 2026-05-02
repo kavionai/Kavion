@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kalpeshchouhan/Kavion"><img alt="Version" src="https://img.shields.io/badge/version-0.4.1-202124"></a>
+  <a href="https://github.com/kalpeshchouhan/Kavion"><img alt="Version" src="https://img.shields.io/badge/version-0.5.0-202124"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-00A887"></a>
   <img alt="AI Coding CLI" src="https://img.shields.io/badge/AI%20coding%20CLI-extension-4C7BE8">
   <img alt="MCP" src="https://img.shields.io/badge/MCP-supported-D9A000">
@@ -45,13 +45,14 @@ Inside the CLI:
 ```text
 /extensions list
 /kavion:init-project
-/kavion:start "Build a settings page"
 /kavion:feature "Build a settings page"
 /kavion:status
 /kavion:gate ship
 /kavion:migrate
 /kavion:search "auth flow"
 ```
+
+For most users, `/kavion:feature` is the only command needed to begin serious work. It starts or resumes the session internally when needed. `/kavion:start` remains available for explicit session control.
 
 ## Memory Layout
 

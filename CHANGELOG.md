@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 - 2026-05-03
+
+- Made `/kavion:feature` the default user entrypoint for serious feature work by documenting and enforcing internal session bootstrap.
+- Kept `/kavion:start` as an optional advanced command for explicit session control instead of a mandatory first step.
+- Updated README, quickstart, architecture, MCP, and workflow guidance so new users are not forced through extra session-start ceremony.
+
 ## 0.4.1 - 2026-04-29
 
 - Fixed report artifact discipline so only canonical QA, review, and security reports belong under `.kavion/reports/`.
