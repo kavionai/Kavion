@@ -12,8 +12,11 @@ Required flow:
    - `.kavion/CURRENT.md`
    If missing, initialize project memory before implementation when writes are permitted.
 2. Read `.kavion/CURRENT.md` first. Read `PROJECT.md` and `DECISIONS.md` only when the task needs them.
-3. Start or resume the worker-backed session before implementation.
+3. `/kavion:feature` is the normal user entrypoint. Start or resume the worker-backed session internally before implementation.
    - Prefer MCP tool `kavion_session_start`.
+   - If there is no active session, create one from this feature request automatically.
+   - If there is an active matching session, resume it automatically.
+   - `/kavion:start` is optional advanced control; do not require the user to run it first.
    - Do not hand-edit `.kavion/session.json`; it is a rendered view.
 4. Use task-planner for multi-step work and persist `plan-<task-slug>.md` under `.kavion/plans/`.
    - Prefer MCP tool `kavion_plan_create`.

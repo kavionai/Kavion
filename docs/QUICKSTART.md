@@ -17,11 +17,12 @@ Inside Gemini CLI:
 
 ```text
 /kavion:init-project
-/kavion:start "Build a small API"
 /kavion:feature "Build a small API"
 /kavion:status
 /kavion:gate ship
 ```
+
+Use `/kavion:feature` as the normal entrypoint. It auto-starts or resumes the worker-backed session. `/kavion:start` is optional and mainly useful when you want explicit session control before implementation.
 
 Kavion commands:
 

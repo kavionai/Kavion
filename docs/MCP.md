@@ -2,6 +2,8 @@
 
 Kavion uses a worker-backed MCP server for SQLite state, rendered views, search, migration, and real gates.
 
+The worker session lifecycle does not require the user to call `/kavion:start` first. Higher-level commands such as `/kavion:feature` can call `kavion_session_start` internally when no active session exists.
+
 ## Tools
 
 - `kavion_initialize_workspace`
