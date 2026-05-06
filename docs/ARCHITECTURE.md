@@ -9,6 +9,8 @@ Kavion has five main parts:
 5. worker-backed MCP runtime for memory, search, migration, and gates
 6. worker-backed specialist delegation and handoff tracking
 
+The worker is intentionally lazy about workspace mutation. MCP startup should be read-only; `.kavion/` is created only when the user explicitly initializes Kavion or starts a real Kavion workflow.
+
 ## Memory Model
 
 Kavion now splits state into:

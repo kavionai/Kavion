@@ -4,6 +4,8 @@ Kavion uses a worker-backed MCP server for SQLite state, rendered views, search,
 
 The worker session lifecycle does not require the user to call `/kavion:start` first. Higher-level commands such as `/kavion:feature` can call `kavion_session_start` internally when no active session exists.
 
+The worker should not create `.kavion/` just because Gemini starts and loads the MCP server. Workspace initialization is lazy and happens only through explicit Kavion entrypoints such as `kavion_initialize_workspace` or higher-level workflow commands that need project state.
+
 ## Tools
 
 - `kavion_initialize_workspace`

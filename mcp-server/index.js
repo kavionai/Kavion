@@ -10,7 +10,7 @@ import { spawn } from 'node:child_process';
 import MiniSearch from '../vendor/mcp-runtime/node_modules/minisearch/dist/es/index.js';
 import YAML from '../vendor/mcp-runtime/node_modules/yaml/dist/index.js';
 
-const serverVersion = '0.6.0';
+const serverVersion = '0.6.1';
 
 const modulePath = fileURLToPath(import.meta.url);
 const serverDir = path.dirname(modulePath);
@@ -232,6 +232,7 @@ async function removeIfExists(filePath) {
 }
 
 async function logWorker(message, payload = null) {
+  if (!(await exists(kavionRoot))) return;
   const line = `[${isoNow()}] ${message}${payload ? ` ${JSON.stringify(payload)}` : ''}\n`;
   await appendText(workerLogFile, line);
 }
@@ -338,6 +339,14 @@ async function ensureStaticFiles() {
     config.security.command = await detectSecurityCommand();
     await writeTextAtomic(gatesFile, YAML.stringify(config));
   }
+}
+
+async function kavionWorkspaceExists() {
+  return await exists(kavionRoot);
+}
+
+async function kavionWorkspaceInitialized() {
+  return (await exists(kavionRoot)) && (await exists(stateDbFile));
 }
 
 function openDb() {
@@ -1064,6 +1073,7 @@ function fallbackHookError(reason) {
 }
 
 async function recordFallbackEvent(kind, payload) {
+  if (!(await exists(kavionRoot))) return;
   await appendJsonl(fallbackEventsFile, {
     ts: isoNow(),
     kind,
@@ -1781,7 +1791,12 @@ async function closeActiveSession(reason = 'completed') {
 }
 
 async function readGateConfig() {
-  await ensureStaticFiles();
+  if (!(await kavionWorkspaceExists())) {
+    const config = structuredClone(defaultGateConfig);
+    config.test.command = await detectTestCommand();
+    config.security.command = await detectSecurityCommand();
+    return config;
+  }
   const raw = await readText(gatesFile);
   try {
     return {
@@ -2012,6 +2027,14 @@ function requiredSpecialistGaps(session) {
 }
 
 async function runGate(name) {
+  if (name === 'status') return getStatus();
+  if (!(await kavionWorkspaceInitialized())) {
+    return {
+      ok: false,
+      reason: 'NOT_INITIALIZED',
+      next_step: 'Run /kavion:init-project or /kavion:feature first.',
+    };
+  }
   await ensureWorkspaceInitialized();
   const active = activeSessionRow();
   if (!active && name !== 'status') {
@@ -2019,7 +2042,6 @@ async function runGate(name) {
   }
 
   const config = await readGateConfig();
-  if (name === 'status') return getStatus();
   if (name === 'plan') {
     const plan = active ? await latestArtifact(active.session_id, 'plan') : null;
     const plannerDelegation = active ? latestDelegationByAgent(active.session_id, 'task-planner') : null;
@@ -2163,6 +2185,14 @@ async function runGate(name) {
 }
 
 async function memoryGc({ delete_expired = true } = {}) {
+  if (!(await kavionWorkspaceInitialized())) {
+    return {
+      ok: true,
+      expired_notes: [],
+      kept_notes: [],
+      oversized: [],
+    };
+  }
   await ensureWorkspaceInitialized();
   const names = await fs.readdir(notesRoot).catch(() => []);
   const expired = [];
@@ -2206,6 +2236,34 @@ async function memoryGc({ delete_expired = true } = {}) {
 }
 
 async function getStatus() {
+  if (!(await kavionWorkspaceInitialized())) {
+    const branch = await gitBranch();
+    const porcelain = await gitStatusPorcelain();
+    return {
+      workspace: workspacePath,
+      branch,
+      git_clean: !porcelain.trim(),
+      initialized: false,
+      current: 'Kavion is not initialized for this project.',
+      session: defaultRenderedSession(),
+      storage: {
+        state_db: rel(stateDbFile),
+        current_view: rel(currentFile),
+        session_view: rel(sessionFile),
+        hook_settings: rel(projectGeminiSettingsFile),
+      },
+      memory: {
+        index_root: rel(indexRoot),
+        index_dirty: false,
+        oversized: [],
+        expired_notes: [],
+      },
+      latest_plans: [],
+      latest_reports: [],
+      next_step: '',
+      recommended_next: '/kavion:init-project',
+    };
+  }
   await ensureWorkspaceInitialized();
   const session = activeSessionRow();
   const dirty = await exists(dirtyFile);
@@ -2301,6 +2359,13 @@ async function collectIndexableFiles() {
 }
 
 async function buildIndex() {
+  if (!(await kavionWorkspaceInitialized())) {
+    return {
+      ok: false,
+      reason: 'NOT_INITIALIZED',
+      next_step: 'Run /kavion:init-project or /kavion:feature first.',
+    };
+  }
   await ensureWorkspaceInitialized();
   const files = await collectIndexableFiles();
   const chunks = [];
@@ -2361,6 +2426,9 @@ async function buildIndex() {
 }
 
 async function loadIndex() {
+  if (!(await kavionWorkspaceInitialized())) {
+    return { mini: createMiniSearch(), chunkMap: new Map(), dirty: false, initialized: false };
+  }
   const missing = !(await exists(chunksFile)) || !(await exists(miniSearchFile));
   const dirty = await exists(dirtyFile);
   if (missing || dirty) await buildIndex();
@@ -2373,6 +2441,17 @@ async function loadIndex() {
 
 async function searchIndex({ query, top_k = 5 }) {
   const { mini, chunkMap } = await loadIndex();
+  if (!query || !String(query).trim()) {
+    return { query, backend: 'bm25', results: [] };
+  }
+  if (chunkMap.size === 0) {
+    return {
+      query,
+      backend: 'bm25',
+      results: [],
+      initialized: await kavionWorkspaceInitialized(),
+    };
+  }
   return {
     query,
     backend: 'bm25',
@@ -2392,6 +2471,7 @@ async function searchIndex({ query, top_k = 5 }) {
 }
 
 async function readChunk(id) {
+  if (!(await kavionWorkspaceInitialized())) return null;
   const { chunkMap } = await loadIndex();
   return chunkMap.get(id) || null;
 }
@@ -2420,7 +2500,6 @@ async function importLegacySessionJson() {
 }
 
 async function migrate({ apply = false } = {}) {
-  await ensureStaticFiles();
   const actions = [
     { action: 'create_state_db', to: rel(stateDbFile) },
     { action: 'install_hook_settings', to: rel(projectGeminiSettingsFile) },
@@ -2428,7 +2507,12 @@ async function migrate({ apply = false } = {}) {
     { action: 'retain_existing_plans_reports_notes', to: '.kavion/plans, .kavion/reports, .kavion/notes' },
   ];
   if (!apply) {
-    return { ok: true, mode: 'dry-run', actions };
+    return {
+      ok: true,
+      mode: 'dry-run',
+      initialized: await kavionWorkspaceInitialized(),
+      actions,
+    };
   }
   await ensureWorkspaceInitialized();
   await installGeminiHookSettings();
@@ -2474,6 +2558,7 @@ function buildHotContext() {
 
 async function handleSessionStartHook() {
   try {
+    if (!(await kavionWorkspaceInitialized())) return {};
     await ensureWorkspaceInitialized();
     await renderSessionViews();
     return {
@@ -2490,6 +2575,7 @@ async function handleSessionStartHook() {
 
 async function handleBeforeAgentHook(input) {
   try {
+    if (!(await kavionWorkspaceInitialized())) return {};
     await ensureWorkspaceInitialized();
     const prompt = extractUserText(input);
     const session = activeSessionRow();
@@ -2566,6 +2652,7 @@ function toolTouchedPath(toolInput = {}) {
 
 async function handleBeforeToolHook(input) {
   try {
+    if (!(await kavionWorkspaceInitialized())) return {};
     await ensureWorkspaceInitialized();
     const session = activeSessionRow();
     if (!session) return {};
@@ -2615,6 +2702,7 @@ async function handleBeforeToolHook(input) {
 
 async function handleAfterToolHook(input) {
   try {
+    if (!(await kavionWorkspaceInitialized())) return {};
     await ensureWorkspaceInitialized();
     const session = activeSessionRow();
     if (!session) return {};
@@ -2659,7 +2747,6 @@ async function runHook(eventName) {
 }
 
 async function startMcpServer() {
-  await ensureWorkspaceInitialized();
   const server = new McpServer({
     name: 'kavion-worker',
     version: serverVersion,

@@ -24,6 +24,8 @@ Inside Gemini CLI:
 
 Use `/kavion:feature` as the normal entrypoint. It auto-starts or resumes the worker-backed session. `/kavion:start` is optional and mainly useful when you want explicit session control before implementation.
 
+Kavion creates `.kavion/` lazily. Starting Gemini alone should not create project state. `.kavion/` is created when you run `/kavion:init-project` or enter serious work through `/kavion:feature`. Gemini itself may still create `.gemini/`.
+
 Primary Kavion commands:
 
 ```text

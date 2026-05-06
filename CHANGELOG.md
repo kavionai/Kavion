@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1 - 2026-05-06
+
+- Stopped Kavion from eagerly creating `.kavion/` just because Gemini starts and loads the MCP worker.
+- Made status, search, migration, and hook paths tolerant of an uninitialized workspace so the worker can stay read-only until the user enters Kavion workflow.
+- Kept `.kavion/` creation behind explicit workflow entrypoints such as `/kavion:init-project` and `/kavion:feature`, while allowing Gemini itself to manage `.gemini/`.
+
 ## 0.6.0 - 2026-05-03
 
 - Simplified the documented Kavion command surface around a smaller primary set: `feature`, `fix-issue`, `review`, `status`, `resume`, `gate`, `archive`, `search`, and `migrate`.

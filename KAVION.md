@@ -18,7 +18,7 @@ Use Kavion for serious software work: feature implementation, bug fixes, debuggi
 For non-trivial coding work:
 
 1. Consult relevant Kavion skill files when available.
-2. Check whether Kavion project memory exists. If `KAVION.md` or `.kavion/CURRENT.md` is missing, initialize project memory first.
+2. Check whether Kavion project memory exists. If `.kavion/` is missing, do not create it eagerly; initialize project memory only when the user actually enters Kavion workflow.
 3. Read `.kavion/CURRENT.md` first.
 4. Read `.kavion/PROJECT.md` and `.kavion/DECISIONS.md` only when the task actually needs them.
 5. For non-trivial work, make sure the worker-backed session exists before implementation.
